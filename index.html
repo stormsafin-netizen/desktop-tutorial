@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Registration</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <form id="registration-form" novalidate>
+      <h1>Create Account</h1>
+
+      <div class="form-group" id="group-username">
+        <label for="username">Username</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          autocomplete="username"
+          placeholder="e.g. john_doe"
+        />
+        <span class="error-msg" id="error-username" role="alert"></span>
+      </div>
+
+      <div class="form-group" id="group-email">
+        <label for="email">Email Address</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          autocomplete="email"
+          placeholder="e.g. john@example.com"
+        />
+        <span class="error-msg" id="error-email" role="alert"></span>
+      </div>
+
+      <div class="form-group" id="group-password">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          autocomplete="new-password"
+          placeholder="At least 8 characters"
+        />
+        <span class="error-msg" id="error-password" role="alert"></span>
+        <ul class="password-rules">
+          <li id="rule-length">At least 8 characters</li>
+          <li id="rule-uppercase">One uppercase letter</li>
+          <li id="rule-lowercase">One lowercase letter</li>
+          <li id="rule-number">One number</li>
+          <li id="rule-special">One special character (!@#$%^&*)</li>
+        </ul>
+      </div>
+
+      <div class="form-group" id="group-confirm-password">
+        <label for="confirm-password">Confirm Password</label>
+        <input
+          type="password"
+          id="confirm-password"
+          name="confirm-password"
+          autocomplete="new-password"
+          placeholder="Re-enter your password"
+        />
+        <span class="error-msg" id="error-confirm-password" role="alert"></span>
+      </div>
+
+      <div class="form-group" id="group-phone">
+        <label for="phone">Phone Number <span class="optional">(optional)</span></label>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          autocomplete="tel"
+          placeholder="e.g. +1 555-123-4567"
+        />
+        <span class="error-msg" id="error-phone" role="alert"></span>
+      </div>
+
+      <div class="form-group checkbox-group" id="group-terms">
+        <label class="checkbox-label">
+          <input type="checkbox" id="terms" name="terms" />
+          I agree to the <a href="#" tabindex="-1">Terms of Service</a> and
+          <a href="#" tabindex="-1">Privacy Policy</a>
+        </label>
+        <span class="error-msg" id="error-terms" role="alert"></span>
+      </div>
+
+      <button type="submit" id="submit-btn">Create Account</button>
+
+      <p class="login-link">Already have an account? <a href="#">Sign in</a></p>
+    </form>
+  </div>
+
+  <script src="validation.js"></script>
+</body>
+</html>
