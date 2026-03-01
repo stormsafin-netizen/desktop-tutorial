@@ -2,29 +2,27 @@
 const users = [];
 let nextId = 1;
 
-function findByEmail(email, callback) {
-  const user = users.find((u) => u.email === email) || null;
-  process.nextTick(() => callback(null, user));
+function findByEmail(email) {
+  return Promise.resolve(users.find((u) => u.email === email) || null);
 }
 
-function findById(id, callback) {
-  const user = users.find((u) => u.id === id) || null;
-  process.nextTick(() => callback(null, user));
+function findById(id) {
+  return Promise.resolve(users.find((u) => u.id === id) || null);
 }
 
-function create(userData, callback) {
+function create(userData) {
   const user = { id: nextId++, ...userData };
   users.push(user);
-  process.nextTick(() => callback(null, user));
+  return Promise.resolve(user);
 }
 
-function updatePassword(userId, hashedPassword, callback) {
+function updatePassword(userId, hashedPassword) {
   const user = users.find((u) => u.id === userId);
   if (!user) {
-    return process.nextTick(() => callback(new Error('User not found')));
+    return Promise.reject(new Error('User not found'));
   }
   user.password = hashedPassword;
-  process.nextTick(() => callback(null));
+  return Promise.resolve();
 }
 
 module.exports = { findByEmail, findById, create, updatePassword };

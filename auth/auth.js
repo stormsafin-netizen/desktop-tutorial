@@ -6,112 +6,71 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const JWT_EXPIRES_IN = '7d';
 const SALT_ROUNDS = 10;
 
-function register(username, email, password, callback) {
-  userService.findByEmail(email, function (err, existingUser) {
-    if (err) {
-      return callback(err);
-    }
-    if (existingUser) {
-      return callback(new Error('Email already in use'));
-    }
+async function register(username, email, password) {
+  const existingUser = await userService.findByEmail(email);
+  if (existingUser) {
+    throw new Error('Email already in use');
+  }
 
-    bcrypt.hash(password, SALT_ROUNDS, function (err, hashedPassword) {
-      if (err) {
-        return callback(err);
-      }
+  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  const user = await userService.create({ username, email, password: hashedPassword });
 
-      const newUser = { username, email, password: hashedPassword };
-      userService.create(newUser, function (err, user) {
-        if (err) {
-          return callback(err);
-        }
-
-        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-          expiresIn: JWT_EXPIRES_IN,
-        });
-
-        callback(null, { user, token });
-      });
-    });
+  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN,
   });
+
+  return { user, token };
 }
 
-function login(email, password, callback) {
-  userService.findByEmail(email, function (err, user) {
-    if (err) {
-      return callback(err);
-    }
-    if (!user) {
-      return callback(new Error('Invalid credentials'));
-    }
+async function login(email, password) {
+  const user = await userService.findByEmail(email);
+  if (!user) {
+    throw new Error('Invalid credentials');
+  }
 
-    bcrypt.compare(password, user.password, function (err, isMatch) {
-      if (err) {
-        return callback(err);
-      }
-      if (!isMatch) {
-        return callback(new Error('Invalid credentials'));
-      }
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new Error('Invalid credentials');
+  }
 
-      const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN,
-      });
-
-      callback(null, { user, token });
-    });
+  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN,
   });
+
+  return { user, token };
 }
 
-function verifyToken(token, callback) {
-  jwt.verify(token, JWT_SECRET, function (err, decoded) {
-    if (err) {
-      return callback(new Error('Invalid or expired token'));
-    }
+async function verifyToken(token) {
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch {
+    throw new Error('Invalid or expired token');
+  }
 
-    userService.findById(decoded.id, function (err, user) {
-      if (err) {
-        return callback(err);
-      }
-      if (!user) {
-        return callback(new Error('User not found'));
-      }
+  const user = await userService.findById(decoded.id);
+  if (!user) {
+    throw new Error('User not found');
+  }
 
-      callback(null, user);
-    });
-  });
+  return user;
 }
 
-function changePassword(userId, currentPassword, newPassword, callback) {
-  userService.findById(userId, function (err, user) {
-    if (err) {
-      return callback(err);
-    }
-    if (!user) {
-      return callback(new Error('User not found'));
-    }
+async function changePassword(userId, currentPassword, newPassword) {
+  const user = await userService.findById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
 
-    bcrypt.compare(currentPassword, user.password, function (err, isMatch) {
-      if (err) {
-        return callback(err);
-      }
-      if (!isMatch) {
-        return callback(new Error('Current password is incorrect'));
-      }
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) {
+    throw new Error('Current password is incorrect');
+  }
 
-      bcrypt.hash(newPassword, SALT_ROUNDS, function (err, hashedPassword) {
-        if (err) {
-          return callback(err);
-        }
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await userService.updatePassword(userId, hashedPassword);
 
-        userService.updatePassword(userId, hashedPassword, function (err) {
-          if (err) {
-            return callback(err);
-          }
-          callback(null, { message: 'Password updated successfully' });
-        });
-      });
-    });
-  });
+  return { message: 'Password updated successfully' };
 }
 
 module.exports = { register, login, verifyToken, changePassword };
