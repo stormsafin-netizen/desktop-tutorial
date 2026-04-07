@@ -1,28 +1,46 @@
-// Simulated in-memory user store (replace with real DB queries in production)
-const users = [];
-let nextId = 1;
+const { createClient } = require('@supabase/supabase-js');
 
-function findByEmail(email) {
-  return Promise.resolve(users.find((u) => u.email === email) || null);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+);
+
+async function findByEmail(email) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .single();
+  if (error) return null;
+  return data;
 }
 
-function findById(id) {
-  return Promise.resolve(users.find((u) => u.id === id) || null);
+async function findById(id) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) return null;
+  return data;
 }
 
-function create(userData) {
-  const user = { id: nextId++, ...userData };
-  users.push(user);
-  return Promise.resolve(user);
+async function create({ username, email, password }) {
+  const { data, error } = await supabase
+    .from('users')
+    .insert({ username, email, password })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
 }
 
-function updatePassword(userId, hashedPassword) {
-  const user = users.find((u) => u.id === userId);
-  if (!user) {
-    return Promise.reject(new Error('User not found'));
-  }
-  user.password = hashedPassword;
-  return Promise.resolve();
+async function updatePassword(userId, hashedPassword) {
+  const { error } = await supabase
+    .from('users')
+    .update({ password: hashedPassword })
+    .eq('id', userId);
+  if (error) throw new Error(error.message);
 }
 
 module.exports = { findByEmail, findById, create, updatePassword };

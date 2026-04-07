@@ -1,17 +1,39 @@
 {
   "name": "desktop-tutorial",
   "version": "1.0.0",
-  "description": "Authentication module with async/await",
-  "main": "index.js",
+  "description": "製造指図記録書 GMP検証Webアプリ",
   "scripts": {
-    "start": "node index.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "test": "jest"
   },
   "dependencies": {
+    "next": "14.2.29",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.0"
+    "jsonwebtoken": "^9.0.0",
+    "@anthropic-ai/sdk": "^0.27.0",
+    "@supabase/supabase-js": "^2.44.0",
+    "pdf2pic": "^3.1.4",
+    "sharp": "^0.33.4",
+    "zod": "^3.23.8",
+    "jose": "^5.6.3"
   },
   "devDependencies": {
-    "jest": "^29.0.0"
+    "typescript": "^5.4.5",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "tailwindcss": "^3.4.4",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "jest": "^29.0.0",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.29"
   }
 }
