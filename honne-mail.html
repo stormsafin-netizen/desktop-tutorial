@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>本音透視メール解析アプリ 🔍</title>
+  <style>
+    :root {
+      --primary: #4a3aff;
+      --primary-light: #6e61ff;
+      --bg: #f4f5fb;
+      --card: #ffffff;
+      --text: #2b2b3c;
+      --muted: #7a7a90;
+      --danger: #d6334c;
+      --warn: #e08a00;
+      --safe: #1d9e5f;
+      --kansai: #ff7b29;
+      --radius: 14px;
+      --shadow: 0 4px 20px rgba(40, 40, 90, 0.10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+      background: linear-gradient(135deg, #eef0ff 0%, #fdf3ec 100%);
+      min-height: 100vh;
+      color: var(--text);
+      padding-bottom: 60px;
+    }
+
+    header {
+      background: linear-gradient(120deg, var(--primary) 0%, var(--primary-light) 70%);
+      color: #fff;
+      padding: 28px 20px 22px;
+      text-align: center;
+    }
+    header h1 { font-size: 1.5rem; letter-spacing: 1px; }
+    header p { margin-top: 6px; font-size: 0.85rem; opacity: 0.9; }
+
+    main { max-width: 760px; margin: 0 auto; padding: 20px 16px; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .card h2 {
+      font-size: 1.02rem;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    label.section-label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      border: 1.5px solid #d8d8e8;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      background: #fbfbff;
+    }
+    textarea:focus { outline: none; border-color: var(--primary); }
+
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      border: 1.5px solid #d8d8e8;
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .chip:hover { border-color: var(--primary-light); }
+    .chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .chip.tone.active { background: var(--safe); border-color: var(--safe); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #fff7f0;
+      border: 1.5px dashed var(--kansai);
+      border-radius: 10px;
+    }
+    .toggle-label { font-size: 0.92rem; font-weight: 600; color: var(--kansai); }
+    .toggle-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: #ccc; border-radius: 999px;
+      cursor: pointer; transition: 0.2s;
+    }
+    .slider::before {
+      content: ""; position: absolute;
+      width: 22px; height: 22px; left: 3px; top: 3px;
+      background: #fff; border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: var(--kansai); }
+    .switch input:checked + .slider::before { transform: translateX(24px); }
+
+    .analyze-btn {
+      width: 100%;
+      margin-top: 16px;
+      background: linear-gradient(120deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 2px;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(74, 58, 255, 0.35); }
+    .analyze-btn:active { transform: translateY(1px); }
+
+    #results { display: none; }
+
+    .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+    .badge {
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      flex: 1 1 200px;
+      text-align: center;
+    }
+    .badge .badge-sub { display: block; font-weight: 400; font-size: 0.75rem; margin-top: 3px; opacity: 0.85; }
+
+    .danger-bar-wrap {
+      margin-top: 12px;
+      background: #ececf5;
+      border-radius: 999px;
+      height: 14px;
+      overflow: hidden;
+    }
+    .danger-bar {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s ease;
+    }
+
+    .layer {
+      border-left: 4px solid var(--primary-light);
+      background: #f7f7ff;
+      border-radius: 0 10px 10px 0;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .layer h3 { font-size: 0.88rem; margin-bottom: 5px; color: var(--primary); }
+    .layer p { font-size: 0.92rem; line-height: 1.6; }
+    .layer.deep { border-color: var(--danger); background: #fff5f6; }
+    .layer.deep h3 { color: var(--danger); }
+
+    ul.plain { list-style: none; }
+    ul.plain li {
+      padding: 9px 12px;
+      background: #f7f7ff;
+      border-radius: 9px;
+      margin-bottom: 8px;
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    .kansai-box {
+      background: #fff3e6;
+      border: 2px solid var(--kansai);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 4px;
+    }
+    .kansai-box h3 { color: var(--kansai); font-size: 0.95rem; margin-bottom: 8px; }
+    .kansai-box p {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-bottom: 6px;
+    }
+
+    .reply-box {
+      background: #f4faf6;
+      border: 1.5px solid #bfe3cd;
+      border-radius: 12px;
+      padding: 16px;
+      white-space: pre-wrap;
+      font-size: 0.92rem;
+      line-height: 1.75;
+    }
+    .reply-label {
+      display: inline-block;
+      background: var(--safe);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      margin-bottom: 10px;
+    }
+    .copy-btn {
+      margin-top: 12px;
+      background: var(--safe);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 10px 18px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .copy-btn:hover { filter: brightness(1.08); }
+
+    footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 30px;
+      padding: 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔍 本音透視メール解析アプリ</h1>
+    <p>丁寧な文章の裏にある「ほんまの気持ち」を読み解く実務×心理ツール</p>
+  </header>
+
+  <main>
+    <!-- 入力 -->
+    <section class="card">
+      <h2>📨 解析したいメール</h2>
+      <label class="section-label">受け取ったメール本文を貼り付けてください</label>
+      <textarea id="mailInput" placeholder="例）お疲れ様です。〇〇の件について情報が入りました。真偽は不明ですが、お心当たりがありましたらご確認ください。私の立場上、注意をさせていただいた次第です。"></textarea>
+
+      <div style="margin-top:16px;">
+        <label class="section-label">👤 相手の立場（誰から来たメール？）</label>
+        <div class="chip-row" id="stanceRow">
+          <button class="chip active" data-stance="boss">上司</button>
+          <button class="chip" data-stance="peer">同僚</button>
+          <button class="chip" data-stance="it">IT・情報システム</button>
+          <button class="chip" data-stance="qa">品質保証</button>
+          <button class="chip" data-stance="external">取引先・外部</button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <label class="section-label">🎚 返信トーン</label>
+        <div class="chip-row" id="toneRow">
+          <button class="chip tone" data-tone="soft">やわらかい</button>
+          <button class="chip tone active" data-tone="normal">標準</button>
+          <button class="chip tone" data-tone="firm">はっきり</button>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">🗣 関西弁ツッコミモード</div>
+          <div class="toggle-sub">ONにすると、分析結果に関西の先輩がツッコんでくれるで</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="kansaiToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="analyze-btn" id="analyzeBtn">🔮 本音を透視する</button>
+    </section>
+
+    <!-- 結果 -->
+    <div id="results">
+      <section class="card">
+        <h2>📊 判定結果</h2>
+        <div class="badge-row">
+          <div class="badge" id="typeBadge"></div>
+          <div class="badge" id="dangerBadge"></div>
+        </div>
+        <div class="danger-bar-wrap"><div class="danger-bar" id="dangerBar"></div></div>
+      </section>
+
+      <section class="card">
+        <h2>🧅 本音のレイヤー分解</h2>
+        <div class="layer">
+          <h3>① 表面（建前）</h3>
+          <p id="layerSurface"></p>
+        </div>
+        <div class="layer">
+          <h3>② 中層（実務レベルの本音）</h3>
+          <p id="layerMiddle"></p>
+        </div>
+        <div class="layer deep">
+          <h3>③ 深層（本当の本音）</h3>
+          <p id="layerDeep"></p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>🔭 未来予測</h2>
+        <ul class="plain" id="futureList"></ul>
+      </section>
+
+      <section class="card" id="kansaiCard" style="display:none;">
+        <h2>🗣 関西の先輩からのツッコミ</h2>
+        <div class="kansai-box" id="kansaiBox"></div>
+      </section>
+
+      <section class="card">
+        <h2>✉️ おすすめ返信文</h2>
+        <span class="reply-label" id="replyLabel"></span>
+        <div class="reply-box" id="replyBox"></div>
+        <button class="copy-btn" id="copyBtn">📋 返信文をコピー</button>
+      </section>
+    </div>
+
+    <footer>
+      ※ 本アプリの解析はキーワードベースの簡易推定です。あくまで参考として、最終判断はご自身で。<br>
+      「丁寧な文章ほど、圧は見えにくいんや。」
+    </footer>
+  </main>
+
+  <script>
+    // ---------- 状態 ----------
+    let stance = 'boss';
+    let tone = 'normal';
+
+    // ---------- シグナル辞書 ----------
+    const SIGNALS = {
+      audit: {  // 🔥 監査・詰め型
+        words: ['心当たり', '事実確認', '確認させて', '経緯', '説明', '立場上', '規程', '規則', 'ルール', '違反', '監査', 'ログ', '記録', '報告して', 'ご報告ください', '真偽', '情報が入り', '注意をさせて', '把握して'],
+        weight: 2
+      },
+      pressure: {  // ⚡ 圧かけ型
+        words: ['至急', '早急', '本日中', '期限', '必ず', '徹底', '再発', '遺憾', '何度も', '以前も', '繰り返し', '速やかに', 'お早めに', '改めて', '厳に', '今後このような'],
+        weight: 2
+      },
+      anxiety: {  // 😟 不安型
+        words: ['大丈夫でしょうか', '心配', '不安', '問題ないでしょうか', '教えていただけ', 'すみません', '恐縮', '申し訳', 'いかがでしょうか', '差し支えなければ', 'もしよろしければ'],
+        weight: 1
+      },
+      flat: {  // 🟢 フラット型
+        words: ['共有', 'ご参考', '取り急ぎ', 'お疲れ様', 'ありがとう', '周知', 'FYI', '展開', 'ご査収'],
+        weight: 1
+      }
+    };
+
+    // ---------- タイプ定義 ----------
+    const TYPES = {
+      audit:    { icon: '🔥', name: '監査・詰め型', color: '#d6334c', replyStyle: '【防御MAX】' },
+      pressure: { icon: '⚡', name: '圧かけ型',     color: '#e08a00', replyStyle: '【即レス】' },
+      anxiety:  { icon: '😟', name: '不安型',       color: '#4a7bd6', replyStyle: '【安心提供】' },
+      flat:     { icon: '🟢', name: 'フラット型',   color: '#1d9e5f', replyStyle: '【無難】' }
+    };
+
+    const DANGER_RANKS = [
+      { min: 8, icon: '💀', label: '危険案件',  color: '#d6334c', pct: 95 },
+      { min: 4, icon: '🔥', label: '要注意',    color: '#e06030', pct: 70 },
+      { min: 2, icon: '⚠️', label: '様子見',    color: '#e0a800', pct: 45 },
+      { min: 0, icon: '🟢', label: '平和',      color: '#1d9e5f', pct: 18 }
+    ];
+
+    // ---------- 立場 × タイプ：本音3層 ----------
+    const LAYERS = {
+      boss: {
+        audit: {
+          surface: '「念のための確認です」という体裁。あくまで穏やかに聞いているだけ、という顔をしている。',
+          middle: '内容そのものより「どう返してくる人か」を見ている。すでにある程度の心証は固まっており、YESを引き出しに来ている可能性が高い。',
+          deep: '「今のうちに自主的に修正してほしい。大ごとにはしたくないが、対応次第ではいつでも問題化できる」── 釘を刺しつつログを残しに来ている。'
+        },
+        pressure: {
+          surface: '期限や対応を「お願い」する形を取っているが、選択肢は実質ない。',
+          middle: '上からも詰められていて、あなたの対応スピードが自分の評価に直結すると考えている。',
+          deep: '「自分が板挟みになる前に動いてくれ。遅れたらあなたのせいにせざるを得ない」── 責任の置き場所を先に整理しに来ている。'
+        },
+        anxiety: {
+          surface: '柔らかい言い回しで状況を尋ねているだけに見える。',
+          middle: '報告ラインに対して自分が説明できる材料を欲しがっている。怒っているのではなく、把握していない状態が怖い。',
+          deep: '「悪い報告でもいいから早く知りたい。後から知らされるのが一番困る」── 安心材料を求めている。'
+        },
+        flat: {
+          surface: '純粋な情報共有・連絡に見えるし、実際にほぼその通り。',
+          middle: 'ただし上司からの「共有」は、暗に「把握しておいてね（後で聞くかもよ）」のニュアンスを含むことがある。',
+          deep: '「ちゃんと読んで動ける人かどうか」は、こういう何気ないメールでも見られている。'
+        }
+      },
+      peer: {
+        audit: {
+          surface: '「ちょっと確認なんだけど」という軽いトーンを装っている。',
+          middle: '自分に飛び火しないように、事実関係と責任の所在を先に切り分けたい。',
+          deep: '「もし問題になったとき、自分は確認した側でいたい」── 味方のふりをしたアリバイ作りの可能性がある。'
+        },
+        pressure: {
+          surface: '「お互い大変だよね」と言いつつ、対応を急がせている。',
+          middle: '自分のタスクがあなたの作業待ちでブロックされていて、内心かなり焦っている。',
+          deep: '「遅れの原因が自分側だと思われたくない。ボールはそっちにあると記録に残したい」。'
+        },
+        anxiety: {
+          surface: '遠慮がちに質問・相談しているだけに見える。',
+          middle: '自分の理解や進め方に自信がなく、答え合わせをしたい。',
+          deep: '「間違ったまま進めて怒られたくない。先に確認した事実を作っておきたい」。'
+        },
+        flat: {
+          surface: 'ただの共有・雑談ベースの連絡。',
+          middle: '特に裏はないが、「一応伝えたからね」という軽い責任パスを含むことはある。',
+          deep: '気持ちよく協力関係を保ちたい、くらいの温度感。素直に受け取ってOK。'
+        }
+      },
+      it: {
+        audit: {
+          surface: '「セキュリティ上の確認です」という定型的な体裁。',
+          middle: 'ログや通報など、何らかの裏付け情報をすでに持っている可能性が高い。確認ではなく裏取りのフェーズ。',
+          deep: '「見逃して後で問題になったら自分の責任になる。だから先に記録に残す」── すでに上長への軽い報告や調査が動いている可能性もある。'
+        },
+        pressure: {
+          surface: '対応依頼の形だが、期限と手順が細かく指定されている。',
+          middle: '全社統制やインシデント対応の進捗を管理されており、未対応者リストにあなたの名前が載っている。',
+          deep: '「期限までに消化しないと自分たちが監査で指摘される。例外は作りたくない」。'
+        },
+        anxiety: {
+          surface: '状況を丁寧にヒアリングしている。',
+          middle: '異常検知などのアラートがあり、誤検知かどうか判断する材料が欲しい。',
+          deep: '「大ごとにする前に、シロだと確認できれば一番ありがたい」── 早く安心して案件を閉じたい。'
+        },
+        flat: {
+          surface: 'メンテナンス案内や周知などの定型連絡。',
+          middle: '特に個人を見ているわけではない。',
+          deep: 'ただし「周知済み」という記録は残るので、読んでいなかったでは通らなくなる点だけ注意。'
+        }
+      },
+      qa: {
+        audit: {
+          surface: '「品質記録の確認です」という事務的なトーン。',
+          middle: '逸脱や手順不遵守の兆候を掴んでおり、記録と突き合わせている段階。回答はそのまま記録に残る。',
+          deep: '「再発防止策まで持っていくのが自分の仕事。曖昧な回答なら正式な指摘に切り替える」── 回答の質で次のフェーズが決まる。'
+        },
+        pressure: {
+          surface: '是正対応の「お願い」だが、期限と様式が決まっている。',
+          middle: '監査対応や査察準備が背後にあり、未完了項目を抱えていられない。',
+          deep: '「期限超過は自分たちの管理不備として指摘される。何としても期限内に閉じたい」。'
+        },
+        anxiety: {
+          surface: '影響範囲を丁寧に確認している。',
+          middle: '判断に必要な事実が揃っておらず、自分の責任で見送りや出荷判断をするのが怖い。',
+          deep: '「判断根拠を一緒に作ってほしい。後から覆る判断だけはしたくない」。'
+        },
+        flat: {
+          surface: '定期的な記録確認・予定共有など。',
+          middle: '通常業務の範囲で、特に含みはない。',
+          deep: 'ただしQAからの連絡は基本すべて記録に残る前提で返すのが安全。'
+        }
+      },
+      external: {
+        audit: {
+          surface: '「認識の確認をさせてください」という丁寧な照会。',
+          middle: '契約条件や仕様の食い違いを察知していて、書面で言質を取りに来ている。',
+          deep: '「後で揉めたときの証拠を整えたい。返信内容は社内・法務に展開される前提」── 返信は契約文書並みの重みを持つ。'
+        },
+        pressure: {
+          surface: '納期・回答期限の「ご相談」という形。',
+          middle: '先方も顧客や社内から詰められており、あなたの回答を盾にしたい。',
+          deep: '「遅延の責任はそちらにある、という流れを書面で確定させたい」。'
+        },
+        anxiety: {
+          surface: '進捗を気にかけてくれているような文面。',
+          middle: '社内への報告期限が迫っていて、答えられる材料が欲しい。',
+          deep: '「何でもいいから報告できる事実をください。ゼロ回答が一番困る」。'
+        },
+        flat: {
+          surface: '挨拶や定例の連絡。関係維持のためのコミュニケーション。',
+          middle: '良好な関係を続けたいという意思表示でもある。',
+          deep: 'ここで丁寧に返しておくと、後々の交渉がやりやすくなる。地味に大事なメール。'
+        }
+      }
+    };
+
+    // ---------- 未来予測（タイプ別） ----------
+    const FUTURES = {
+      audit: [
+        '🟡 今：自主的な説明・修正を待っているフェーズ',
+        '🟠 放置・曖昧回答 → 上長報告 or 正式な確認依頼にエスカレーション',
+        '🔴 最悪：指導・監査・記録ベースの問題化',
+        '🟢 早めに事実ベースで返す → 「確認済み」で静かにクローズ'
+      ],
+      pressure: [
+        '🟡 今：期限前のプレッシャー段階',
+        '🟠 期限直前 → リマインド（CCに上司が追加される可能性大）',
+        '🔴 期限超過 → 「ご対応いただけていません」と記録付きで詰められる',
+        '🟢 即レス＋期日明示 → 相手の焦りが収まり平常運転に戻る'
+      ],
+      anxiety: [
+        '🟡 今：安心材料を待っている段階',
+        '🟠 返信が遅い → 不安が膨らみ、確認メールが増殖する',
+        '🔴 最悪：不安のまま上に相談され、話が大きくなる',
+        '🟢 先に状況と見通しを伝える → 一気に信頼ポイントが貯まる'
+      ],
+      flat: [
+        '🟢 今：特にアクション必須ではない平和な状態',
+        '🟡 ただし「読んでなかった」が後で効いてくるパターンはある',
+        '🟢 軽く一言返しておくと印象が良い（コスパ最強の返信）'
+      ]
+    };
+
+    // ---------- 関西弁ツッコミ：タイプ別 ----------
+    const KANSAI_TYPE = {
+      audit: [
+        '…いやこれ、優しい顔してナイフ持ってるやつやで。',
+        '「念のため確認」て書いてあるけど、念のためちゃう。本命や。',
+        '「私の立場上」が出たら要注意やで。あれは「もう義務は果たしたからな」の合図や。'
+      ],
+      pressure: [
+        '「お願いします」の圧がもう「やれ」になっとるやん。',
+        '丁寧語で包んであるけど、中身は督促状やでこれ。',
+        '期限書いてあるメールは、期限の3日前に返すんが大人のたしなみや。'
+      ],
+      anxiety: [
+        'これ怒ってるんちゃうで。めっちゃ不安なだけや。先に安心させたり。',
+        '「大丈夫でしょうか」は翻訳すると「大丈夫って言うて！」やからな。',
+        '返事遅らせたら不安が育って、気づいたら上司まで巻き込まれとるパターンや。'
+      ],
+      flat: [
+        'これは平和なやつや。肩の力抜いてええで。',
+        'ただな、「共有しときますね」の顔してボール置いて帰るタイプもおるから、最後の一行だけよう読んどき。',
+        '一言「ありがとうございます」返しとくだけで好感度上がるで。コスパ最強や。'
+      ]
+    };
+
+    // ---------- 関西弁ツッコミ：立場別 ----------
+    const KANSAI_STANCE = {
+      boss: 'あとな、上司からのメールは内容そのものより「どう返す人か」見られてるやつやから、落ち着いた大人の返しでいくんやで。',
+      peer: '同僚やからって油断したらあかんで。「確認しといたからな」は、たまにアリバイ作りのことあるからな。',
+      it: 'IT部門は基本ログ持っとる前提で考えとき。隠すより素直が一番強い戦法や。',
+      qa: 'QAへの返事は全部記録に残る思て書きや。「たぶん」「だったはず」は禁句やで。',
+      external: '外部さんへの返信は社内回覧される前提や。感情は入れんと、事実と期日だけ淡々といくんや。'
+    };
+
+    // ---------- 返信文パーツ ----------
+    const REPLY_OPENING = {
+      soft: 'お疲れ様です。ご連絡いただきありがとうございます。\n',
+      normal: 'お疲れ様です。ご連絡ありがとうございます。\n',
+      firm: 'お疲れ様です。標題の件、回答いたします。\n'
+    };
+    const REPLY_OPENING_EXTERNAL = {
+      soft: 'いつも大変お世話になっております。ご丁寧にご連絡いただき、誠にありがとうございます。\n',
+      normal: 'いつもお世話になっております。ご連絡ありがとうございます。\n',
+      firm: 'お世話になっております。標題の件につき、下記のとおり回答いたします。\n'
+    };
+
+    const REPLY_CORE = {
+      boss: {
+        soft: '\nご指摘いただいた件について、現在の状況を確認しております。\n事実関係を整理のうえ、改めてご報告させていただきます。\nご心配をおかけし申し訳ありません。',
+        normal: '\nご指摘の件について、まず事実関係を確認いたします。\n本日中に現状を整理し、確認結果と対応方針をご報告いたします。\n何か補足すべき点がございましたらご指示ください。',
+        firm: '\nご指摘の件について、事実関係を確認のうえ本日中にご報告いたします。\nなお、現時点で把握している範囲では規程に反する利用は確認しておりませんが、念のため利用状況を再点検し、結果を共有いたします。'
+      },
+      peer: {
+        soft: '\n確認の連絡ありがとう。状況をこちらでも見てみるね。\n分かり次第すぐ共有するので、少しだけ時間をもらえると助かります。',
+        normal: '\n確認ありがとう。こちらの状況を整理して、今日中に共有します。\n認識がずれていそうな点があれば、先に教えてもらえると助かります。',
+        firm: '\n確認ありがとう。こちらの作業状況は以下の通りです。\n・現在の進捗：（記入）\n・完了予定：（記入）\nこちら側で止まっている事項はない認識ですが、相違があれば具体的に教えてください。'
+      },
+      it: {
+        soft: '\nご確認いただきありがとうございます。\n利用状況について心当たりを確認し、改めてご回答いたします。\nルールに不明瞭な点があれば、あわせてご教示いただけますと幸いです。',
+        normal: '\nご指摘の件について、自身の利用状況を確認いたしました。\n（確認結果を記入）\n社内規程に沿った利用を徹底いたします。確認すべきログ等がございましたら、調査にはいつでも協力いたします。',
+        firm: '\nご指摘の件について確認いたしました。結果は以下の通りです。\n・対象の利用有無：（記入）\n・該当期間・用途：（記入）\n規程上問題となる利用は行っておりません。必要であればログ確認等の調査にも協力いたしますので、手順をご指示ください。'
+      },
+      qa: {
+        soft: '\nご確認いただきありがとうございます。\n該当の記録と経緯を確認し、整理してご回答いたします。\n影響範囲についても併せて確認いたします。',
+        normal: '\nご指摘の件について、該当記録と経緯を確認のうえ、本日中に回答いたします。\n影響範囲の評価と、必要に応じた再発防止の検討も併せて行います。',
+        firm: '\nご指摘の件について、確認結果を以下の通り回答いたします。\n・事実関係：（記入）\n・影響範囲：（記入）\n・再発防止策：（記入）\n根拠記録は別途添付いたします。追加で必要な記録があればご指定ください。'
+      },
+      external: {
+        soft: '\nご確認のご連絡をいただき、ありがとうございます。\n社内にて状況を確認のうえ、改めてご回答申し上げます。\n今しばらくお時間をいただけますと幸いです。',
+        normal: '\nお問い合わせの件について、社内で確認のうえ、◯月◯日までにご回答いたします。\n認識の相違があってはいけませんので、前提条件について一点確認させてください。（確認事項を記入）',
+        firm: '\nお問い合わせの件について、弊社の認識は以下の通りです。\n・経緯：（記入）\n・現状：（記入）\n・今後の対応と期日：（記入）\n上記認識に相違がございましたら、書面にてご指摘いただけますと幸いです。'
+      }
+    };
+
+    const REPLY_CLOSING = {
+      soft: '\n\n引き続きどうぞよろしくお願いいたします。',
+      normal: '\n\n以上、よろしくお願いいたします。',
+      firm: '\n\n以上です。ご確認のほどお願いいたします。'
+    };
+
+    const TONE_LABEL = { soft: 'やわらかい', normal: '標準', firm: 'はっきり' };
+    const STANCE_LABEL = { boss: '上司', peer: '同僚', it: 'IT・情報システム', qa: '品質保証', external: '取引先・外部' };
+
+    // ---------- 解析ロジック ----------
+    function analyze(text) {
+      const scores = { audit: 0, pressure: 0, anxiety: 0, flat: 0 };
+      for (const [key, sig] of Object.entries(SIGNALS)) {
+        for (const w of sig.words) {
+          if (text.includes(w)) scores[key] += sig.weight;
+        }
+      }
+      // 文章が短くシグナルゼロならフラット寄せ
+      const total = scores.audit + scores.pressure + scores.anxiety + scores.flat;
+      if (total === 0) scores.flat = 1;
+
+      let type = 'flat';
+      let max = -1;
+      for (const key of ['audit', 'pressure', 'anxiety', 'flat']) {
+        if (scores[key] > max) { max = scores[key]; type = key; }
+      }
+      const dangerScore = scores.audit + scores.pressure - Math.floor(scores.flat / 2);
+      const rank = DANGER_RANKS.find(r => dangerScore >= r.min) || DANGER_RANKS[3];
+      return { type, scores, dangerScore, rank };
+    }
+
+    // ---------- 描画 ----------
+    function render(result) {
+      const t = TYPES[result.type];
+
+      const typeBadge = document.getElementById('typeBadge');
+      typeBadge.style.background = t.color + '18';
+      typeBadge.style.color = t.color;
+      typeBadge.innerHTML = `${t.icon} ${t.name}<span class="badge-sub">このメールのタイプ判定</span>`;
+
+      const dangerBadge = document.getElementById('dangerBadge');
+      dangerBadge.style.background = result.rank.color + '18';
+      dangerBadge.style.color = result.rank.color;
+      dangerBadge.innerHTML = `${result.rank.icon} ${result.rank.label}<span class="badge-sub">危険度ランク</span>`;
+
+      const bar = document.getElementById('dangerBar');
+      bar.style.background = result.rank.color;
+      bar.style.width = result.rank.pct + '%';
+
+      const layers = LAYERS[stance][result.type];
+      document.getElementById('layerSurface').textContent = layers.surface;
+      document.getElementById('layerMiddle').textContent = layers.middle;
+      document.getElementById('layerDeep').textContent = layers.deep;
+
+      const futureList = document.getElementById('futureList');
+      futureList.innerHTML = '';
+      for (const f of FUTURES[result.type]) {
+        const li = document.createElement('li');
+        li.textContent = f;
+        futureList.appendChild(li);
+      }
+
+      // 関西弁ツッコミ
+      const kansaiOn = document.getElementById('kansaiToggle').checked;
+      const kansaiCard = document.getElementById('kansaiCard');
+      if (kansaiOn) {
+        const box = document.getElementById('kansaiBox');
+        box.innerHTML = '<h3>👴 先輩の見立て</h3>';
+        const lines = [...KANSAI_TYPE[result.type], KANSAI_STANCE[stance]];
+        for (const line of lines) {
+          const p = document.createElement('p');
+          p.textContent = '「' + line + '」';
+          box.appendChild(p);
+        }
+        kansaiCard.style.display = '';
+      } else {
+        kansaiCard.style.display = 'none';
+      }
+
+      // 返信文
+      const opening = stance === 'external' ? REPLY_OPENING_EXTERNAL[tone] : REPLY_OPENING[tone];
+      const reply = opening + REPLY_CORE[stance][tone] + REPLY_CLOSING[tone];
+      document.getElementById('replyLabel').textContent =
+        `${t.replyStyle} ${STANCE_LABEL[stance]}向け × ${TONE_LABEL[tone]}トーン`;
+      document.getElementById('replyBox').textContent = reply;
+
+      const results = document.getElementById('results');
+      const firstTime = results.style.display !== 'block';
+      results.style.display = 'block';
+      if (firstTime) results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ---------- イベント ----------
+    function setupChips(rowId, onSelect) {
+      const row = document.getElementById(rowId);
+      row.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip');
+        if (!btn) return;
+        row.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        onSelect(btn);
+        rerunIfVisible();
+      });
+    }
+
+    setupChips('stanceRow', btn => { stance = btn.dataset.stance; });
+    setupChips('toneRow', btn => { tone = btn.dataset.tone; });
+
+    function rerunIfVisible() {
+      if (document.getElementById('results').style.display !== 'block') return;
+      const text = document.getElementById('mailInput').value.trim();
+      if (text) render(analyze(text));
+    }
+
+    document.getElementById('kansaiToggle').addEventListener('change', rerunIfVisible);
+
+    document.getElementById('analyzeBtn').addEventListener('click', () => {
+      const text = document.getElementById('mailInput').value.trim();
+      if (!text) {
+        alert('メール本文を貼り付けてや！（解析するもんがないで）');
+        return;
+      }
+      render(analyze(text));
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const text = document.getElementById('replyBox').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = '✅ コピーしました！';
+        setTimeout(() => { btn.textContent = '📋 返信文をコピー'; }, 1800);
+      } catch {
+        alert('コピーに失敗しました。手動で選択してコピーしてください。');
+      }
+    });
+  </script>
+</body>
+</html>
