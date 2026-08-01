@@ -83,6 +83,7 @@ tr.off td.namecol{color:var(--bad)}
   <section id="v-staff" hidden></section>
   <section id="v-plan" hidden></section>
   <section id="v-assign" hidden></section>
+  <section id="v-actual" hidden></section>
   <section id="v-config" hidden></section>
 </main>
 
@@ -146,6 +147,7 @@ function freshState(){
     lines:clone(DEFAULT_LINES),
     opts:{fairness:true, multiskill:true, seed:20260801},
     result:null,
+    history:{},             // 月 -> {recordedAt, days:[{day, entries:[{name,line,pos,level}], indirect:[{name,job}]}]}
   };
   SEED.employees.forEach(e => st.emp[e.name] = {
     f4:clone(e.f4), f10:clone(e.f10), short:e.short, offPri:0, leave:[], active:true});
@@ -154,7 +156,8 @@ function freshState(){
 let S = load();
 function load(){
   try{ const raw = localStorage.getItem(LS);
-    if(raw){ const s = JSON.parse(raw); if(s && s.emp) return s; } }catch(e){}
+    if(raw){ const s = JSON.parse(raw);
+      if(s && s.emp){ if(!s.history) s.history = {}; return s; } } }catch(e){}
   return freshState();
 }
 function save(){
@@ -265,9 +268,47 @@ function runAssign(){
   save();
 }
 
+/* ---------------- 配置実績 ---------------- */
+// 現在の配置案を、その月の実績として記録する
+function recordActual(){
+  const r = S.result; if(!r) return false;
+  const days = [];
+  r.days.forEach(d => {
+    if(!d.groups.length) return;
+    const entries = [];
+    d.groups.forEach(g => g.slots.forEach(s => {
+      const a = (d.placed[g.label + '|' + s.pos] || [])[s.idx];
+      if(a && a.name) entries.push({name:a.name, line:g.label, pos:s.pos, level:a.level});
+    }));
+    days.push({day:d.day, entries, indirect:d.indirect.map(i => ({name:i.name, job:i.job}))});
+  });
+  S.history[r.month] = {recordedAt:new Date().toISOString(), days};
+  save();
+  return true;
+}
+const histMonths = () => Object.keys(S.history).sort();
+// 記録済みの全実績から、人 × ポジションの従事回数を数える
+function actualCounts(){
+  const per = {}, posSet = new Set(), ind = {};
+  histMonths().forEach(m => S.history[m].days.forEach(d => {
+    d.entries.forEach(e => {
+      posSet.add(e.pos);
+      (per[e.name] = per[e.name] || {})[e.pos] = (per[e.name][e.pos] || 0) + 1;
+    });
+    d.indirect.forEach(i => ind[i.name] = (ind[i.name] || 0) + 1);
+  }));
+  return {per, ind, positions:[...posSet].sort()};
+}
+function histTotals(){
+  let line = 0, indirect = 0, days = 0;
+  histMonths().forEach(m => S.history[m].days.forEach(d => {
+    days++; line += d.entries.length; indirect += d.indirect.length; }));
+  return {line, indirect, days};
+}
+
 /* ---------------- 画面 ---------------- */
 const TABS = [['dash','ダッシュボード'],['skill','スキルマップ更新'],['staff','人員設定'],
-              ['plan','生産計画'],['assign','自動配置'],['config','ライン定義']];
+              ['plan','生産計画'],['assign','自動配置'],['actual','配置実績'],['config','ライン定義']];
 let tab = 'dash';
 document.getElementById('nav').innerHTML = TABS.map(([k,l]) =>
   `<button data-t="${k}">${l}</button>`).join('');
@@ -276,7 +317,8 @@ function show(t){
   tab = t;
   TABS.forEach(([k]) => document.getElementById('v-'+k).hidden = (k !== t));
   [...document.querySelectorAll('#nav button')].forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({dash:viewDash, skill:viewSkill, staff:viewStaff, plan:viewPlan, assign:viewAssign, config:viewConfig})[t]();
+  ({dash:viewDash, skill:viewSkill, staff:viewStaff, plan:viewPlan,
+    assign:viewAssign, actual:viewActual, config:viewConfig})[t]();
 }
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -296,6 +338,8 @@ function viewDash(){
       <div><span>ライン外優先</span><b>${off.length}</b><span>間接作業へ自動振替</span></div>
       <div><span>対象月</span><b>${esc(S.month)}</b><span>${daysInMonth()} 日分の計画</span></div>
       <div><span>充足不足の警告</span><b>${warnCount === null ? '-' : warnCount}</b><span>${warnCount === null ? '未実行' : '自動配置の結果'}</span></div>
+      <div><span>記録済みの実績</span><b>${histMonths().length}</b><span>${
+        histMonths().length ? 'ライン配置 延べ ' + histTotals().line : '未記録'}</span></div>
     </div>
   </div>
   <div class="panel"><h2>使い方 <small>上のタブを左から順に</small></h2>
@@ -304,8 +348,9 @@ function viewDash(){
       <b>2. 人員設定</b>：ライン外優先度（1〜3。3ほど強く外れる）と、有給・出張日を登録します。優先度を付けた人は余剰時に自動で洗浄・間接作業へ回ります。<br>
       <b>3. 生産計画</b>：対象月を選び、日ごとにどのラインが立つかを確認します。<br>
       <b>4. 自動配置</b>：実行すると全日分の配置案が出ます。有資格者が足りない枠は赤で警告されます。<br>
-      <b>5. ライン定義</b>：ポジションの必要スキル・必要レベル・人数を変更できます。<br>
-      データはこのブラウザに自動保存されます（localStorage）。
+      <b>5. 配置実績</b>：確定した配置を記録として残します。蓄積した工程別の従事回数が、スキルマップを実態に合わせる際の材料になります。<br>
+      <b>6. ライン定義</b>：ポジションの必要スキル・必要レベル・人数を変更できます。<br>
+      データはこのブラウザに自動保存されます（localStorage）。共有・移行する場合は「配置実績」タブから JSON で書き出してください。
     </div>
   </div>
   <div class="panel"><h2>ライン外優先に設定されている人員</h2>
@@ -450,6 +495,7 @@ function viewAssign(){
       <label class="chk"><input type="checkbox" id="oFair"${S.opts.fairness?' checked':''}>負荷を平準化する</label>
       <label class="chk"><input type="checkbox" id="oMulti"${S.opts.multiskill?' checked':''}>多能工育成（指導可と組ませる）</label>
       <button class="act" id="run">自動配置を実行</button>
+      <button class="act" id="rec"${r?'':' disabled'}>実績として記録</button>
       <button class="act" id="xlsx"${r?'':' disabled'}>Excel出力</button>
       <button class="ghost" id="csv"${r?'':' disabled'}>CSV出力</button>
       <button class="ghost" id="prt"${r?'':' disabled'}>印刷</button>
@@ -517,6 +563,11 @@ function bindAssign(){
   if(g('oMulti')) g('oMulti').onchange = e => { S.opts.multiskill = e.target.checked; save(); };
   if(g('run')) g('run').onclick = () => { runAssign(); viewAssign(); };
   if(g('xlsx')) g('xlsx').onclick = exportAssignXlsx;
+  if(g('rec')) g('rec').onclick = () => {
+    if(S.history[S.result.month] &&
+       !confirm(`${S.result.month} の実績はすでに記録されています。上書きしますか。`)) return;
+    if(recordActual()) show('actual');
+  };
   if(g('prt')) g('prt').onclick = () => window.print();
   if(g('csv')) g('csv').onclick = () => {
     const rows = [['日','ライン','ポジション','必要レベル','氏名','レベル']];
@@ -527,6 +578,106 @@ function bindAssign(){
     S.result.days.forEach(d => d.indirect.forEach(i => rows.push([d.day, '間接作業', i.job, '', i.name, ''])));
     dl(`配置案_${S.month}.csv`, '﻿' + rows.map(r => r.join(',')).join('\n'));
   };
+}
+
+/* ---- 配置実績 ---- */
+function viewActual(){
+  const ms = histMonths(), t = histTotals();
+  const head = `
+  <div class="panel"><h2>配置実績</h2>
+    <div class="row">
+      <button class="ghost" id="acXlsx"${ms.length?'':' disabled'}>Excel出力</button>
+      <button class="ghost" id="acJson"${ms.length?'':' disabled'}>JSONで書き出し</button>
+      <button class="ghost" id="acLoad">JSONを読み込み</button>
+      <input type="file" id="acFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="hint" style="margin-top:6px">
+      「自動配置」タブで結果を出したあと「実績として記録」を押すと、その月の配置がここに蓄積されます。<br>
+      蓄積した従事回数は、スキルマップを実態に合わせる際の判断材料になります（記録は月単位で上書きされます）。<br>
+      このブラウザにのみ保存されるため、他の人と共有する場合や端末を変える場合は JSON で書き出してください。
+    </div>
+  </div>`;
+  if(!ms.length){ document.getElementById('v-actual').innerHTML = head +
+    '<div class="panel"><div class="hint">まだ実績がありません。</div></div>'; bindActual(); return; }
+
+  const {per, ind, positions} = actualCounts();
+  const rows = names().filter(n => per[n] || ind[n]).map(n => {
+    const tot = positions.reduce((a,p) => a + (per[n]?.[p] || 0), 0);
+    return `<tr><td class="namecol">${esc(n)}</td>${
+      positions.map(p => { const c = per[n]?.[p] || 0;
+        return `<td${c?'':' class="sat"'}>${c || '—'}</td>`; }).join('')
+      }<td><b>${tot}</b></td><td>${ind[n] || '—'}</td></tr>`;
+  }).join('');
+
+  document.getElementById('v-actual').innerHTML = head + `
+  <div class="panel"><h2>蓄積状況</h2>
+    <div class="kpi">
+      <div><span>記録済みの月</span><b>${ms.length}</b><span>${ms.map(esc).join('、')}</span></div>
+      <div><span>記録日数</span><b>${t.days}</b></div>
+      <div><span>ライン配置（延べ）</span><b>${t.line}</b></div>
+      <div><span>間接作業（延べ）</span><b>${t.indirect}</b></div>
+    </div>
+  </div>
+  <div class="panel"><h2>記録済みの月</h2>
+    <div class="row">${ms.map(m => `<span class="badge b-info">${esc(m)}
+      <span class="sat">${new Date(S.history[m].recordedAt).toLocaleString('ja-JP')}</span>
+      <button class="ghost" data-del="${esc(m)}" style="margin-left:6px;padding:1px 6px">削除</button></span>`).join('')}</div>
+  </div>
+  <div class="panel"><h2>工程別 従事回数 <small>記録済みの全期間</small></h2>
+    <div class="scroll"><table>
+      <tr><th class="namecol">氏名</th>${positions.map(p => `<th>${esc(p)}</th>`).join('')}
+        <th>合計</th><th>間接</th></tr>${rows}</table></div>
+  </div>`;
+  bindActual();
+}
+function bindActual(){
+  const g = id => document.getElementById(id);
+  if(g('acXlsx')) g('acXlsx').onclick = exportActualXlsx;
+  if(g('acJson')) g('acJson').onclick = () =>
+    dl(`配置実績_${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(S.history, null, 1));
+  if(g('acLoad')) g('acLoad').onclick = () => g('acFile').click();
+  if(g('acFile')) g('acFile').onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try{
+        const h = JSON.parse(rd.result);
+        if(!h || typeof h !== 'object' || Array.isArray(h)) throw 0;
+        const ks = Object.keys(h).filter(k => h[k] && Array.isArray(h[k].days));
+        if(!ks.length) throw 0;
+        if(!confirm(`${ks.length} か月分（${ks.join('、')}）を読み込みます。同じ月の記録は上書きされます。`)) return;
+        ks.forEach(k => S.history[k] = h[k]);
+        save(); viewActual();
+      }catch(err){ alert('この JSON は配置実績として読み込めませんでした。'); }
+    };
+    rd.readAsText(f);
+    e.target.value = '';
+  };
+  document.querySelectorAll('#v-actual [data-del]').forEach(b => b.onclick = () => {
+    const m = b.dataset.del;
+    if(!confirm(`${m} の実績を削除します。よろしいですか。`)) return;
+    delete S.history[m]; save(); viewActual();
+  });
+}
+function exportActualXlsx(){
+  const sheets = [];
+  // 1) 明細
+  const rows = [[H('月'), H('日'), H('区分'), H('ライン・作業'), H('ポジション'), H('氏名'), H('レベル')]];
+  histMonths().forEach(m => S.history[m].days.forEach(d => {
+    d.entries.forEach(e => rows.push([m, d.day, 'ライン', e.line, e.pos, e.name,
+      e.level ? {v:e.level, s:LVS[e.level] || 0} : '']));
+    d.indirect.forEach(i => rows.push([m, d.day, '間接', i.job, '', i.name, '']));
+  }));
+  sheets.push({name:'実績明細', cols:[8,6,8,22,14,14,8], freeze:1, rows});
+  // 2) 工程別 従事回数
+  const {per, ind, positions} = actualCounts();
+  const cnt = [[H('氏名'), ...positions.map(H), H('合計'), H('間接')]];
+  names().filter(n => per[n] || ind[n]).forEach(n => {
+    const tot = positions.reduce((a,p) => a + (per[n]?.[p] || 0), 0);
+    cnt.push([n, ...positions.map(p => per[n]?.[p] || ''), tot, ind[n] || '']);
+  });
+  sheets.push({name:'工程別従事回数', cols:[14, ...positions.map(() => 10), 8, 8], freeze:1, rows:cnt});
+  dlBlob(`配置実績_${new Date().toISOString().slice(0,10)}.xlsx`, buildXlsx(sheets));
 }
 
 /* ---- ライン定義 ---- */
