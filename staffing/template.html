@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>自動人員配置システム</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#fff; --ink:#1b1f24; --muted:#6b7280; --line:#dfe3e8;
+  --accent:#1f6feb; --accent-soft:#e8f0fe; --warn:#b45309; --warn-soft:#fef3c7;
+  --bad:#b91c1c; --bad-soft:#fee2e2; --ok:#15803d; --ok-soft:#dcfce7;
+  --l1:#fde68a; --l2:#bfdbfe; --l3:#a7f3d0; --l4:#c7d2fe;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Yu Gothic UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,system-ui,sans-serif;font-size:13px}
+header{background:#111827;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.02em}
+header .sub{color:#9ca3af;font-size:11px}
+nav{display:flex;gap:2px;background:#1f2937;padding:0 8px;flex-wrap:wrap}
+nav button{background:none;border:0;color:#9ca3af;padding:9px 14px;cursor:pointer;font-size:12.5px;
+  border-bottom:2px solid transparent;font-family:inherit}
+nav button:hover{color:#e5e7eb}
+nav button.on{color:#fff;border-bottom-color:var(--accent);background:#111827}
+main{padding:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;margin-bottom:12px}
+.panel h2{font-size:13px;margin:0 0 10px;font-weight:700;display:flex;align-items:center;gap:8px}
+.panel h2 small{font-weight:400;color:var(--muted);font-size:11px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button.act{background:var(--accent);color:#fff;border:0;border-radius:4px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-family:inherit}
+button.act:hover{filter:brightness(1.1)}
+button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-family:inherit}
+button.ghost:hover{background:#f3f4f6}
+select,input[type=text],input[type=number]{border:1px solid var(--line);border-radius:4px;padding:5px 8px;font-size:12.5px;font-family:inherit;background:#fff}
+label.chk{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+table{border-collapse:collapse;font-size:12px}
+th,td{border:1px solid var(--line);padding:3px 6px;text-align:center;white-space:nowrap}
+th{background:#f3f4f6;position:sticky;top:0;z-index:2;font-weight:600}
+.scroll{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:4px}
+.namecol{position:sticky;left:0;background:#fafafa;text-align:left;z-index:1;font-weight:600}
+th.namecol{z-index:3}
+.lv1{background:var(--l1)}.lv2{background:var(--l2)}.lv3{background:var(--l3)}.lv4{background:var(--l4)}
+.lvcell{cursor:pointer;min-width:28px}
+.lvcell:hover{outline:2px solid var(--accent);outline-offset:-2px}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px}
+.b-ok{background:var(--ok-soft);color:var(--ok)}
+.b-warn{background:var(--warn-soft);color:var(--warn)}
+.b-bad{background:var(--bad-soft);color:var(--bad)}
+.b-info{background:var(--accent-soft);color:var(--accent)}
+.grid{display:grid;gap:10px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi div{background:#fff;border:1px solid var(--line);border-radius:6px;padding:12px}
+.kpi b{display:block;font-size:22px;font-weight:700;margin-top:2px}
+.kpi span{color:var(--muted);font-size:11px}
+.daycard{border:1px solid var(--line);border-radius:6px;margin-bottom:10px;overflow:hidden}
+.daycard>h3{margin:0;padding:7px 10px;background:#f3f4f6;font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.daycard .body{padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.linebox{border:1px solid var(--line);border-radius:5px}
+.linebox h4{margin:0;padding:5px 8px;background:#fafafa;font-size:12px;border-bottom:1px solid var(--line)}
+.linebox table{width:100%;font-size:11.5px}
+.linebox td{text-align:left;border:0;border-bottom:1px solid #f1f2f4;padding:3px 8px}
+.linebox td:first-child{color:var(--muted);width:38%}
+.sat{color:var(--muted);font-size:11px}
+.pill{display:inline-block;padding:0 5px;border-radius:3px;margin-right:3px;background:#f1f5f9}
+.pill.g{background:var(--l4)} .pill.y{background:var(--l2)} .pill.o{background:var(--l1)}
+.hint{color:var(--muted);font-size:11.5px;line-height:1.6}
+.legend span{margin-right:12px}
+textarea{width:100%;height:90px;border:1px solid var(--line);border-radius:4px;padding:6px;font-family:ui-monospace,monospace;font-size:11.5px}
+tr.off td.namecol{color:var(--bad)}
+@media print{nav,header,.noprint{display:none}.panel{border:0;padding:0}.scroll{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>自動人員配置システム</h1>
+  <span class="sub">生産グループ／様式4・様式10スキルマップ連動</span>
+  <span class="sub" id="savedAt"></span>
+</header>
+<nav id="nav"></nav>
+<main>
+  <section id="v-dash"></section>
+  <section id="v-skill" hidden></section>
+  <section id="v-staff" hidden></section>
+  <section id="v-plan" hidden></section>
+  <section id="v-assign" hidden></section>
+  <section id="v-actual" hidden></section>
+  <section id="v-config" hidden></section>
+</main>
+
+<script id="seed" type="application/json">__DATA__</script>
+<script>
+"use strict";
+const SEED = JSON.parse(document.getElementById('seed').textContent);
+const LS = 'staffing-v1';
+
+/* ---------------- 既定のライン／ポジション定義 ---------------- */
+const S4 = SEED.skills4;
+const sk = n => S4.find(s => s.startsWith(n + '.')) || S4[0];
+
+const DEFAULT_LINES = [
+  {id:'AS', label:'AS坐剤ライン', trig:['AS - 5'], pos:[
+    {name:'充填',   skill:sk(13), min:3, n:2},
+    {name:'包装',   skill:sk(21), min:2, n:3},
+    {name:'交代',   skill:sk(21), min:3, n:1}]},
+  {id:'MS', label:'MS坐剤ライン', trig:['MS - 5'], pos:[
+    {name:'充填',   skill:sk(13), min:3, n:2},
+    {name:'包装',   skill:sk(21), min:2, n:3},
+    {name:'交代',   skill:sk(21), min:3, n:1}]},
+  {id:'GS', label:'GS坐剤ライン', trig:['GS - 5','GS - 7'], pos:[
+    {name:'充填',   skill:sk(14), min:3, n:2},
+    {name:'包装',   skill:sk(23), min:2, n:2},
+    {name:'箱詰め', skill:sk(24), min:2, n:2}]},
+  {id:'AD', label:'AD注入軟膏ライン', trig:['AD - 2g','AD（台湾）-2g'], pos:[
+    {name:'充填OP',     skill:sk(11), min:3, n:1},
+    {name:'ピローOP',   skill:sk(12), min:3, n:1},
+    {name:'目視',       skill:sk(12), min:2, n:2},
+    {name:'カートナー', skill:sk(19), min:3, n:1},
+    {name:'Pケース',    skill:sk(20), min:2, n:1},
+    {name:'交代',       skill:sk(19), min:3, n:1}]},
+  {id:'GO', label:'GO注入軟膏ライン', trig:['GO - 2.4g'], pos:[
+    {name:'充填',       skill:sk(9),  min:3, n:2},
+    {name:'供給',       skill:sk(17), min:3, n:1},
+    {name:'ブリスター', skill:sk(16), min:3, n:1},
+    {name:'カートナー', skill:sk(15), min:3, n:1},
+    {name:'Pケース',    skill:sk(18), min:2, n:2},
+    {name:'交代',       skill:sk(15), min:3, n:1}]},
+];
+// 調製室 → 調製スキルの対応（第32調製室はロット記号で判定）
+const PREP_ROOM = {
+  '第1調製室':{label:'第1調製室(AS調製)', skill:sk(5)},
+  '第2調製室':{label:'第2調製室(AD調製)', skill:sk(3)},
+  '第31調製室':{label:'第31調製室(GO調製)', skill:sk(2)},
+  '第32調製室':{label:'第32調製室', skill:sk(6), by:{'MS':sk(6),'GS':sk(7),'PS':sk(8),'PD':sk(4)}},
+};
+const INDIRECT = [
+  {name:'洗浄',        skill:sk(25), min:3},
+  {name:'資材供給補助',skill:sk(27), min:1},
+  {name:'間接作業',    skill:null,   min:0},
+];
+
+/* ---------------- 状態 ---------------- */
+const clone = o => JSON.parse(JSON.stringify(o));
+function freshState(){
+  const st = {
+    month:'8月',
+    emp:{},                 // name -> {f4, f10, offPri, leave:[days], active}
+    lines:clone(DEFAULT_LINES),
+    opts:{fairness:true, multiskill:true, seed:20260801},
+    result:null,
+    history:{},             // 月 -> {recordedAt, days:[{day, entries:[{name,line,pos,level}], indirect:[{name,job}]}]}
+  };
+  SEED.employees.forEach(e => st.emp[e.name] = {
+    f4:clone(e.f4), f10:clone(e.f10), short:e.short, offPri:0, leave:[], active:true});
+  return st;
+}
+let S = load();
+function load(){
+  try{ const raw = localStorage.getItem(LS);
+    if(raw){ const s = JSON.parse(raw);
+      if(s && s.emp){ if(!s.history) s.history = {}; return s; } } }catch(e){}
+  return freshState();
+}
+function save(){
+  localStorage.setItem(LS, JSON.stringify(S));
+  document.getElementById('savedAt').textContent = '保存済 ' + new Date().toLocaleTimeString('ja-JP');
+}
+const names = () => Object.keys(S.emp);
+const lv = (n, s) => S.emp[n] ? (S.emp[n].f4[s] ?? S.emp[n].f10[s] ?? 0) : 0;
+
+/* ---------------- 生産計画の展開 ---------------- */
+function planItems(){ return SEED.plans[S.month] || []; }
+function daysInMonth(){ let m = 0; planItems().forEach(it => Object.keys(it.days).forEach(d => m = Math.max(m, +d))); return m || 31; }
+
+// その日に稼働するラインとポジション枠を返す
+function slotsForDay(day){
+  const d = String(day), items = planItems(), out = [];
+  // 製造ライン
+  S.lines.forEach(L => {
+    const hit = items.find(it => L.trig.includes(it.item) && it.days[d]);
+    if(!hit) return;
+    const slots = [];
+    L.pos.forEach(p => { for(let i=0;i<p.n;i++) slots.push({pos:p.name, skill:p.skill, min:p.min, idx:i}); });
+    out.push({line:L.id, label:L.label, note:hit.item + ' ' + hit.days[d], slots});
+  });
+  // 調製・秤量
+  items.filter(it => it.group === '調製' && it.days[d]).forEach(it => {
+    const cfg = PREP_ROOM[it.item]; if(!cfg) return;
+    const v = it.days[d];
+    let skill = cfg.skill;
+    if(cfg.by) for(const k in cfg.by) if(v.startsWith(k)) skill = cfg.by[k];
+    out.push({line:'PREP-'+it.item, label:cfg.label, note:v, slots:[
+      {pos:'調製', skill, min:2, idx:0},
+      {pos:'調製', skill, min:2, idx:1},
+      {pos:'秤量', skill:sk(1), min:3, idx:0},
+    ]});
+  });
+  return out;
+}
+
+/* ---------------- 配置エンジン ---------------- */
+function rng(seed){ let x = seed >>> 0; return () => (x = (x*1664525 + 1013904223) >>> 0) / 4294967296; }
+
+function runAssign(){
+  const nd = daysInMonth(), rand = rng(S.opts.seed|0);
+  const load = {}; names().forEach(n => load[n] = 0);       // 累積ライン配置回数
+  const days = [];
+  for(let day = 1; day <= nd; day++){
+    const groups = slotsForDay(day);
+    if(!groups.length){ days.push({day, groups, placed:{}, indirect:[], warns:[], forced:[], leave:[]}); continue; }
+    const used = new Set(), warns = [];
+    const avail = names().filter(n => S.emp[n].active && !(S.emp[n].leave||[]).includes(day));
+
+    // 枠を「有資格者が少ない順」に処理（希少スキルを先に押さえる）
+    const flat = [];
+    groups.forEach(g => g.slots.forEach(s => {
+      const pool = avail.filter(n => lv(n, s.skill) >= s.min);
+      flat.push({g, s, poolSize:pool.length});
+    }));
+    flat.sort((a,b) => a.poolSize - b.poolSize);
+
+    const placed = {};   // groupLabel|pos -> [{name,level}]
+    flat.forEach(({g, s}) => {
+      const key = g.label + '|' + s.pos;
+      const already = placed[key] || [];
+      const cands = avail.filter(n => !used.has(n) && lv(n, s.skill) >= s.min);
+      if(!cands.length){
+        warns.push(`${g.label} / ${s.pos}：有資格者なし（要レベル${s.min}以上）`);
+        (placed[key] = already).push({name:null, level:0});
+        return;
+      }
+      const hasAnchor = already.some(a => a.level >= 4);
+      const scored = cands.map(n => {
+        const L = lv(n, s.skill);
+        let sc = 0;
+        sc -= (S.emp[n].offPri || 0) * 500;                       // ライン外優先度
+        if(S.opts.fairness) sc -= load[n] * 4;                    // 負荷平準化
+        if(S.opts.multiskill && hasAnchor && L === s.min) sc += 25;  // 育成：指導者と組ませる
+        else sc += L * 3;                                         // 通常は高レベル優先
+        if(!hasAnchor && L >= 4) sc += 12;                        // 各ポジションに指導可を1名
+        sc += rand() * 2;
+        return {n, L, sc};
+      }).sort((a,b) => b.sc - a.sc);
+      const pick = scored[0];
+      used.add(pick.n); load[pick.n]++;
+      (placed[key] = already).push({name:pick.n, level:pick.L});
+    });
+
+    // ライン外優先者・余剰人員 → 間接作業へ自動振替
+    const rest = avail.filter(n => !used.has(n));
+    const indirect = [];
+    INDIRECT.forEach(job => {
+      const pool = rest.filter(n => !used.has(n) && (!job.skill || lv(n, job.skill) >= job.min));
+      pool.sort((a,b) => (S.emp[b].offPri||0) - (S.emp[a].offPri||0) || load[a] - load[b]);
+      const take = job.name === '間接作業' ? pool : pool.slice(0, 2);
+      take.forEach(n => { used.add(n); indirect.push({job:job.name, name:n}); });
+    });
+
+    // ライン外優先なのに配置せざるを得なかった人
+    const forced = [];
+    Object.entries(placed).forEach(([k, arr]) => arr.forEach(a => {
+      if(a.name && (S.emp[a.name].offPri||0) > 0) forced.push({at:k, name:a.name, pri:S.emp[a.name].offPri});
+    }));
+
+    days.push({day, groups, placed, indirect, warns, forced,
+      leave: names().filter(n => (S.emp[n].leave||[]).includes(day))});
+  }
+  S.result = {month:S.month, days, load};
+  save();
+}
+
+/* ---------------- 配置実績 ---------------- */
+// 現在の配置案を、その月の実績として記録する
+function recordActual(){
+  const r = S.result; if(!r) return false;
+  const days = [];
+  r.days.forEach(d => {
+    if(!d.groups.length) return;
+    const entries = [];
+    d.groups.forEach(g => g.slots.forEach(s => {
+      const a = (d.placed[g.label + '|' + s.pos] || [])[s.idx];
+      if(a && a.name) entries.push({name:a.name, line:g.label, pos:s.pos, level:a.level});
+    }));
+    days.push({day:d.day, entries, indirect:d.indirect.map(i => ({name:i.name, job:i.job}))});
+  });
+  S.history[r.month] = {recordedAt:new Date().toISOString(), days};
+  save();
+  return true;
+}
+const histMonths = () => Object.keys(S.history).sort();
+// 記録済みの全実績から、人 × ポジションの従事回数を数える
+function actualCounts(){
+  const per = {}, posSet = new Set(), ind = {};
+  histMonths().forEach(m => S.history[m].days.forEach(d => {
+    d.entries.forEach(e => {
+      posSet.add(e.pos);
+      (per[e.name] = per[e.name] || {})[e.pos] = (per[e.name][e.pos] || 0) + 1;
+    });
+    d.indirect.forEach(i => ind[i.name] = (ind[i.name] || 0) + 1);
+  }));
+  return {per, ind, positions:[...posSet].sort()};
+}
+function histTotals(){
+  let line = 0, indirect = 0, days = 0;
+  histMonths().forEach(m => S.history[m].days.forEach(d => {
+    days++; line += d.entries.length; indirect += d.indirect.length; }));
+  return {line, indirect, days};
+}
+
+/* ---------------- 画面 ---------------- */
+const TABS = [['dash','ダッシュボード'],['skill','スキルマップ更新'],['staff','人員設定'],
+              ['plan','生産計画'],['assign','自動配置'],['actual','配置実績'],['config','ライン定義']];
+let tab = 'dash';
+document.getElementById('nav').innerHTML = TABS.map(([k,l]) =>
+  `<button data-t="${k}">${l}</button>`).join('');
+document.getElementById('nav').onclick = e => { if(e.target.dataset.t) show(e.target.dataset.t); };
+function show(t){
+  tab = t;
+  TABS.forEach(([k]) => document.getElementById('v-'+k).hidden = (k !== t));
+  [...document.querySelectorAll('#nav button')].forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  ({dash:viewDash, skill:viewSkill, staff:viewStaff, plan:viewPlan,
+    assign:viewAssign, actual:viewActual, config:viewConfig})[t]();
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---- ダッシュボード ---- */
+function viewDash(){
+  const ns = names(), off = ns.filter(n => S.emp[n].offPri > 0);
+  const inactive = ns.filter(n => !S.emp[n].active);
+  let cells = 0, sum = 0;
+  ns.forEach(n => Object.values(S.emp[n].f4).forEach(v => { cells++; sum += v; }));
+  const warnCount = S.result ? S.result.days.reduce((a,d) => a + d.warns.length, 0) : null;
+  document.getElementById('v-dash').innerHTML = `
+  <div class="panel"><h2>概況</h2>
+    <div class="kpi">
+      <div><span>登録従業員</span><b>${ns.length}</b><span>稼働 ${ns.length - inactive.length} 名</span></div>
+      <div><span>様式4 スキル項目</span><b>${SEED.skills4.length}</b><span>様式10：${SEED.skills10.length} 項目</span></div>
+      <div><span>様式4 平均レベル</span><b>${cells ? (sum/cells).toFixed(2) : '-'}</b><span>${cells} 保有スキル</span></div>
+      <div><span>ライン外優先</span><b>${off.length}</b><span>間接作業へ自動振替</span></div>
+      <div><span>対象月</span><b>${esc(S.month)}</b><span>${daysInMonth()} 日分の計画</span></div>
+      <div><span>充足不足の警告</span><b>${warnCount === null ? '-' : warnCount}</b><span>${warnCount === null ? '未実行' : '自動配置の結果'}</span></div>
+      <div><span>記録済みの実績</span><b>${histMonths().length}</b><span>${
+        histMonths().length ? 'ライン配置 延べ ' + histTotals().line : '未記録'}</span></div>
+    </div>
+  </div>
+  <div class="panel"><h2>使い方 <small>上のタブを左から順に</small></h2>
+    <div class="hint">
+      <b>1. スキルマップ更新</b>：セルをクリックするとレベルが 0→1→2→3→4→0 と切り替わります。ここが配置の判定基準です。<br>
+      <b>2. 人員設定</b>：ライン外優先度（1〜3。3ほど強く外れる）と、有給・出張日を登録します。優先度を付けた人は余剰時に自動で洗浄・間接作業へ回ります。<br>
+      <b>3. 生産計画</b>：対象月を選び、日ごとにどのラインが立つかを確認します。<br>
+      <b>4. 自動配置</b>：実行すると全日分の配置案が出ます。有資格者が足りない枠は赤で警告されます。<br>
+      <b>5. 配置実績</b>：確定した配置を記録として残します。蓄積した工程別の従事回数が、スキルマップを実態に合わせる際の材料になります。<br>
+      <b>6. ライン定義</b>：ポジションの必要スキル・必要レベル・人数を変更できます。<br>
+      データはこのブラウザに自動保存されます（localStorage）。共有・移行する場合は「配置実績」タブから JSON で書き出してください。
+    </div>
+  </div>
+  <div class="panel"><h2>ライン外優先に設定されている人員</h2>
+    ${off.length ? '<div class="row">' + off.sort((a,b)=>S.emp[b].offPri-S.emp[a].offPri).map(n =>
+      `<span class="badge b-warn">${esc(n)}（優先度${S.emp[n].offPri}）</span>`).join('') + '</div>'
+      : '<div class="hint">未設定です。「人員設定」タブで登録してください。</div>'}
+  </div>`;
+}
+
+/* ---- スキルマップ ---- */
+let skForm = 'f4';
+function viewSkill(){
+  const skills = skForm === 'f4' ? SEED.skills4 : SEED.skills10;
+  const ns = names().filter(n => Object.keys(S.emp[n][skForm]).length || skForm === 'f4');
+  const head = '<tr><th class="namecol">氏名</th>' +
+    skills.map(s => `<th title="${esc(s)}">${esc(s).slice(0,14)}</th>`).join('') +
+    '<th>保有数</th></tr>';
+  const body = ns.map(n => {
+    const e = S.emp[n], cnt = skills.filter(s => (e[skForm][s]||0) > 0).length;
+    return `<tr class="${e.offPri>0?'off':''}"><td class="namecol">${esc(n)}</td>` +
+      skills.map(s => { const v = e[skForm][s] || 0;
+        return `<td class="lvcell ${v?'lv'+v:''}" data-n="${esc(n)}" data-s="${esc(s)}">${v||''}</td>`;
+      }).join('') + `<td>${cnt}</td></tr>`;
+  }).join('');
+  document.getElementById('v-skill').innerHTML = `
+  <div class="panel"><h2>スキルマップ更新 <small>セルをクリックしてレベルを変更</small></h2>
+    <div class="row noprint" style="margin-bottom:8px">
+      <select id="skForm"><option value="f4"${skForm==='f4'?' selected':''}>様式4（生産G）</option>
+        <option value="f10"${skForm==='f10'?' selected':''}>様式10（生産GL）</option></select>
+      <button class="act" id="skXlsx">Excel出力</button>
+      <button class="ghost" id="skCsv">CSV出力</button>
+      <span class="legend hint"><span class="badge lv1">1 補助可</span><span class="badge lv2">2 指導下</span>
+        <span class="badge lv3">3 単独可</span><span class="badge lv4">4 指導可</span><span>空欄 = 未取得</span></span>
+    </div>
+    <div class="scroll"><table>${head}${body}</table></div>
+  </div>`;
+  document.getElementById('skForm').onchange = e => { skForm = e.target.value; viewSkill(); };
+  document.getElementById('skXlsx').onclick = () => {
+    const sheets = [['様式4', 'f4', SEED.skills4], ['様式10', 'f10', SEED.skills10]].map(([nm, key, sks]) => {
+      const rows = [[H('氏名'), ...sks.map(H), H('保有数')]];
+      names().forEach(n => {
+        const e = S.emp[n]; if(key === 'f10' && !Object.keys(e.f10).length) return;
+        rows.push([n, ...sks.map(s => { const v = e[key][s] || 0; return v ? {v, s:LVS[v]} : ''; }),
+          sks.filter(s => (e[key][s]||0) > 0).length]);
+      });
+      return {name:'スキルマップ' + nm, cols:[14, ...sks.map(() => 6), 8], freeze:1, rows};
+    });
+    dlBlob('スキルマップ.xlsx', buildXlsx(sheets));
+  };
+  document.getElementById('skCsv').onclick = () => {
+    const rows = [['氏名', ...skills], ...ns.map(n => [n, ...skills.map(s => S.emp[n][skForm][s] || '')])];
+    dl(`スキルマップ_${skForm}.csv`, rows.map(r => r.join(',')).join('\n'));
+  };
+  document.getElementById('v-skill').querySelector('table').onclick = e => {
+    const td = e.target.closest('.lvcell'); if(!td) return;
+    const n = td.dataset.n, s = td.dataset.s;
+    const v = ((S.emp[n][skForm][s] || 0) + 1) % 5;
+    if(v) S.emp[n][skForm][s] = v; else delete S.emp[n][skForm][s];
+    td.textContent = v || ''; td.className = 'lvcell ' + (v ? 'lv'+v : '');
+    const cnt = skills.filter(k => (S.emp[n][skForm][k]||0) > 0).length;
+    td.parentElement.lastElementChild.textContent = cnt;
+    save();
+  };
+}
+
+/* ---- 人員設定 ---- */
+function viewStaff(){
+  const nd = daysInMonth();
+  const rows = names().map(n => {
+    const e = S.emp[n];
+    return `<tr class="${e.offPri>0?'off':''}"><td class="namecol">${esc(n)}</td>
+      <td>${esc(e.short)}</td>
+      <td><select data-n="${esc(n)}" class="pri">${[0,1,2,3].map(v =>
+        `<option value="${v}"${e.offPri==v?' selected':''}>${v===0?'—':v}</option>`).join('')}</select></td>
+      <td><label class="chk"><input type="checkbox" class="act" data-n="${esc(n)}"${e.active?' checked':''}>稼働</label></td>
+      <td style="text-align:left"><input type="text" class="lv" data-n="${esc(n)}" size="26"
+        value="${(e.leave||[]).join(',')}" placeholder="例 3,4,15"></td>
+      <td>${Object.keys(e.f4).length + Object.keys(e.f10).length}</td></tr>`;
+  }).join('');
+  document.getElementById('v-staff').innerHTML = `
+  <div class="panel"><h2>人員設定 <small>ライン外優先度／有給・出張日</small></h2>
+    <div class="hint" style="margin-bottom:8px">
+      ライン外優先度：<b>1</b>=なるべく外す　<b>2</b>=強く外す　<b>3</b>=原則外す。優先度を付けた人は、
+      有資格者が足りない場合を除いてラインに入らず、洗浄・資材供給補助・間接作業へ自動的に振り替えられます。
+      「稼働」を外すと配置対象から完全に除外します。有給・出張日は日付をカンマ区切り（1〜${nd}）。
+    </div>
+    <div class="scroll"><table>
+      <tr><th class="namecol">氏名</th><th>略称</th><th>ライン外優先度</th><th>稼働</th><th>有給・出張日</th><th>保有スキル</th></tr>
+      ${rows}</table></div>
+  </div>`;
+  const v = document.getElementById('v-staff');
+  v.onchange = e => {
+    const n = e.target.dataset.n; if(!n) return;
+    if(e.target.classList.contains('pri')) S.emp[n].offPri = +e.target.value;
+    if(e.target.classList.contains('act')) S.emp[n].active = e.target.checked;
+    if(e.target.classList.contains('lv'))
+      S.emp[n].leave = e.target.value.split(',').map(x => parseInt(x,10)).filter(x => x >= 1 && x <= nd);
+    save(); if(e.target.classList.contains('pri')) viewStaff();
+  };
+}
+
+/* ---- 生産計画 ---- */
+function viewPlan(){
+  const nd = daysInMonth(), items = planItems();
+  const head = '<tr><th class="namecol">工程 / 品目</th><th>計画数量</th>' +
+    Array.from({length:nd}, (_,i) => `<th>${i+1}</th>`).join('') + '</tr>';
+  const body = items.map(it =>
+    `<tr><td class="namecol">${esc(it.group)} ${esc(it.stage)} ${esc(it.item)}</td>
+      <td>${esc(it.qty)}</td>` +
+      Array.from({length:nd}, (_,i) => {
+        const v = it.days[String(i+1)];
+        return `<td${v?' class="lv3"':''} title="${esc(v||'')}">${v ? esc(v).slice(0,6) : ''}</td>`;
+      }).join('') + '</tr>').join('');
+  const act = Array.from({length:nd}, (_,i) => ({d:i+1, g:slotsForDay(i+1)}));
+  document.getElementById('v-plan').innerHTML = `
+  <div class="panel"><h2>生産計画 <small>ラインが立つ日の判定に使用</small></h2>
+    <div class="row noprint" style="margin-bottom:8px">
+      <select id="mo">${Object.keys(SEED.plans).map(m =>
+        `<option${m===S.month?' selected':''}>${esc(m)}</option>`).join('')}</select>
+      <span class="hint">生産計画表から自動読込（${items.length} 工程）</span>
+    </div>
+    <div class="scroll"><table>${head}${body}</table></div>
+  </div>
+  <div class="panel"><h2>日別 稼働ライン</h2>
+    <div class="scroll"><table>
+      <tr><th>日</th><th>稼働ライン</th><th>必要人数</th></tr>
+      ${act.map(a => `<tr><td>${a.d}</td>
+        <td style="text-align:left">${a.g.map(g => `<span class="pill">${esc(g.label)}</span>`).join('') || '<span class="hint">稼働なし</span>'}</td>
+        <td>${a.g.reduce((s,g) => s + g.slots.length, 0)}</td></tr>`).join('')}
+    </table></div>
+  </div>`;
+  document.getElementById('mo').onchange = e => { S.month = e.target.value; S.result = null; save(); viewPlan(); };
+}
+
+/* ---- 自動配置 ---- */
+function viewAssign(){
+  const r = S.result;
+  const head = `
+  <div class="panel noprint"><h2>自動配置</h2>
+    <div class="row">
+      <span>対象月：<b>${esc(S.month)}</b></span>
+      <label class="chk"><input type="checkbox" id="oFair"${S.opts.fairness?' checked':''}>負荷を平準化する</label>
+      <label class="chk"><input type="checkbox" id="oMulti"${S.opts.multiskill?' checked':''}>多能工育成（指導可と組ませる）</label>
+      <button class="act" id="run">自動配置を実行</button>
+      <button class="act" id="rec"${r?'':' disabled'}>実績として記録</button>
+      <button class="act" id="xlsx"${r?'':' disabled'}>Excel出力</button>
+      <button class="ghost" id="csv"${r?'':' disabled'}>CSV出力</button>
+      <button class="ghost" id="prt"${r?'':' disabled'}>印刷</button>
+    </div>
+    <div class="hint" style="margin-top:6px">
+      スキル充足は必須条件です。必要レベル未満の人は配置されず、埋まらない枠は赤で警告します。
+    </div>
+  </div>`;
+  if(!r){ document.getElementById('v-assign').innerHTML = head +
+    '<div class="panel"><div class="hint">「自動配置を実行」を押してください。</div></div>'; bindAssign(); return; }
+
+  const totalWarn = r.days.reduce((a,d) => a + d.warns.length, 0);
+  const loadRows = Object.entries(r.load).sort((a,b) => b[1]-a[1])
+    .map(([n,c]) => `<tr class="${S.emp[n].offPri>0?'off':''}"><td class="namecol">${esc(n)}</td>
+      <td>${c}</td><td>${S.emp[n].offPri || '—'}</td></tr>`).join('');
+
+  const body = r.days.map(d => {
+    if(!d.groups.length) return '';
+    return `<div class="daycard"><h3>${esc(S.month)} ${d.day}日
+      ${d.warns.length ? `<span class="badge b-bad">充足不足 ${d.warns.length}</span>` : '<span class="badge b-ok">充足</span>'}
+      ${d.leave.length ? `<span class="badge b-warn">有給・出張：${d.leave.map(esc).join('、')}</span>` : ''}
+      ${d.forced.length ? `<span class="badge b-info">ライン外優先者をやむを得ず配置：${
+        [...new Set(d.forced.map(f => f.name))].map(esc).join('、')}</span>` : ''}
+      </h3><div class="body">
+      ${d.groups.map(g => `<div class="linebox"><h4>${esc(g.label)} <span class="sat">${esc(g.note)}</span></h4>
+        <table>${g.slots.map(s => {
+          const arr = d.placed[g.label + '|' + s.pos] || [];
+          const a = arr[s.idx] || {};
+          return `<tr><td>${esc(s.pos)}<span class="sat"> L${s.min}+</span></td>
+            <td>${a.name ? `${esc(a.name)} <span class="pill ${a.level>=4?'g':a.level>=3?'y':'o'}">L${a.level}</span>`
+              : '<span class="badge b-bad">該当者なし</span>'}</td></tr>`;
+        }).join('')}</table></div>`).join('')}
+      </div>
+      ${d.indirect.length ? `<div style="padding:6px 10px;border-top:1px solid var(--line);font-size:11.5px">
+        <b>ライン外（間接作業・洗浄）</b> ${INDIRECT.map(j => {
+          const m = d.indirect.filter(i => i.job === j.name);
+          return m.length ? `<div style="margin-top:3px"><span class="sat">${esc(j.name)}：</span>${
+            m.map(i => `<span class="pill${S.emp[i.name].offPri>0?' o':''}">${esc(i.name)}${
+              S.emp[i.name].offPri > 0 ? '（優先'+S.emp[i.name].offPri+'）' : ''}</span>`).join('')}</div>` : '';
+        }).join('')}</div>` : ''}
+      ${d.warns.length ? `<div style="padding:6px 10px;background:var(--bad-soft);color:var(--bad);font-size:11.5px">
+        ${d.warns.map(esc).join('<br>')}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  document.getElementById('v-assign').innerHTML = head + `
+  <div class="panel"><h2>結果サマリー</h2>
+    <div class="kpi">
+      <div><span>配置日数</span><b>${r.days.filter(d=>d.groups.length).length}</b></div>
+      <div><span>充足不足の枠</span><b style="color:${totalWarn?'var(--bad)':'var(--ok)'}">${totalWarn}</b></div>
+      <div><span>間接作業へ振替（延べ）</span><b>${r.days.reduce((a,d)=>a+d.indirect.length,0)}</b></div>
+      <div><span>ライン外優先だが配置（延べ）</span><b>${r.days.reduce((a,d)=>a+d.forced.length,0)}</b></div>
+    </div>
+  </div>
+  <div class="panel"><h2>ライン配置回数（負荷）</h2>
+    <div class="scroll" style="max-height:240px"><table>
+      <tr><th class="namecol">氏名</th><th>ライン配置回数</th><th>ライン外優先度</th></tr>${loadRows}</table></div>
+  </div>
+  <div class="panel"><h2>日別 配置案</h2>${body}</div>`;
+  bindAssign();
+}
+function bindAssign(){
+  const g = id => document.getElementById(id);
+  if(g('oFair')) g('oFair').onchange = e => { S.opts.fairness = e.target.checked; save(); };
+  if(g('oMulti')) g('oMulti').onchange = e => { S.opts.multiskill = e.target.checked; save(); };
+  if(g('run')) g('run').onclick = () => { runAssign(); viewAssign(); };
+  if(g('xlsx')) g('xlsx').onclick = exportAssignXlsx;
+  if(g('rec')) g('rec').onclick = () => {
+    if(S.history[S.result.month] &&
+       !confirm(`${S.result.month} の実績はすでに記録されています。上書きしますか。`)) return;
+    if(recordActual()) show('actual');
+  };
+  if(g('prt')) g('prt').onclick = () => window.print();
+  if(g('csv')) g('csv').onclick = () => {
+    const rows = [['日','ライン','ポジション','必要レベル','氏名','レベル']];
+    S.result.days.forEach(d => d.groups.forEach(g2 => g2.slots.forEach(s => {
+      const a = (d.placed[g2.label + '|' + s.pos] || [])[s.idx] || {};
+      rows.push([d.day, g2.label, s.pos, s.min, a.name || '★該当者なし', a.level || '']);
+    })));
+    S.result.days.forEach(d => d.indirect.forEach(i => rows.push([d.day, '間接作業', i.job, '', i.name, ''])));
+    dl(`配置案_${S.month}.csv`, '﻿' + rows.map(r => r.join(',')).join('\n'));
+  };
+}
+
+/* ---- 配置実績 ---- */
+function viewActual(){
+  const ms = histMonths(), t = histTotals();
+  const head = `
+  <div class="panel"><h2>配置実績</h2>
+    <div class="row">
+      <button class="ghost" id="acXlsx"${ms.length?'':' disabled'}>Excel出力</button>
+      <button class="ghost" id="acJson"${ms.length?'':' disabled'}>JSONで書き出し</button>
+      <button class="ghost" id="acLoad">JSONを読み込み</button>
+      <input type="file" id="acFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="hint" style="margin-top:6px">
+      「自動配置」タブで結果を出したあと「実績として記録」を押すと、その月の配置がここに蓄積されます。<br>
+      蓄積した従事回数は、スキルマップを実態に合わせる際の判断材料になります（記録は月単位で上書きされます）。<br>
+      このブラウザにのみ保存されるため、他の人と共有する場合や端末を変える場合は JSON で書き出してください。
+    </div>
+  </div>`;
+  if(!ms.length){ document.getElementById('v-actual').innerHTML = head +
+    '<div class="panel"><div class="hint">まだ実績がありません。</div></div>'; bindActual(); return; }
+
+  const {per, ind, positions} = actualCounts();
+  const rows = names().filter(n => per[n] || ind[n]).map(n => {
+    const tot = positions.reduce((a,p) => a + (per[n]?.[p] || 0), 0);
+    return `<tr><td class="namecol">${esc(n)}</td>${
+      positions.map(p => { const c = per[n]?.[p] || 0;
+        return `<td${c?'':' class="sat"'}>${c || '—'}</td>`; }).join('')
+      }<td><b>${tot}</b></td><td>${ind[n] || '—'}</td></tr>`;
+  }).join('');
+
+  document.getElementById('v-actual').innerHTML = head + `
+  <div class="panel"><h2>蓄積状況</h2>
+    <div class="kpi">
+      <div><span>記録済みの月</span><b>${ms.length}</b><span>${ms.map(esc).join('、')}</span></div>
+      <div><span>記録日数</span><b>${t.days}</b></div>
+      <div><span>ライン配置（延べ）</span><b>${t.line}</b></div>
+      <div><span>間接作業（延べ）</span><b>${t.indirect}</b></div>
+    </div>
+  </div>
+  <div class="panel"><h2>記録済みの月</h2>
+    <div class="row">${ms.map(m => `<span class="badge b-info">${esc(m)}
+      <span class="sat">${new Date(S.history[m].recordedAt).toLocaleString('ja-JP')}</span>
+      <button class="ghost" data-del="${esc(m)}" style="margin-left:6px;padding:1px 6px">削除</button></span>`).join('')}</div>
+  </div>
+  <div class="panel"><h2>工程別 従事回数 <small>記録済みの全期間</small></h2>
+    <div class="scroll"><table>
+      <tr><th class="namecol">氏名</th>${positions.map(p => `<th>${esc(p)}</th>`).join('')}
+        <th>合計</th><th>間接</th></tr>${rows}</table></div>
+  </div>`;
+  bindActual();
+}
+function bindActual(){
+  const g = id => document.getElementById(id);
+  if(g('acXlsx')) g('acXlsx').onclick = exportActualXlsx;
+  if(g('acJson')) g('acJson').onclick = () =>
+    dl(`配置実績_${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(S.history, null, 1));
+  if(g('acLoad')) g('acLoad').onclick = () => g('acFile').click();
+  if(g('acFile')) g('acFile').onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try{
+        const h = JSON.parse(rd.result);
+        if(!h || typeof h !== 'object' || Array.isArray(h)) throw 0;
+        const ks = Object.keys(h).filter(k => h[k] && Array.isArray(h[k].days));
+        if(!ks.length) throw 0;
+        if(!confirm(`${ks.length} か月分（${ks.join('、')}）を読み込みます。同じ月の記録は上書きされます。`)) return;
+        ks.forEach(k => S.history[k] = h[k]);
+        save(); viewActual();
+      }catch(err){ alert('この JSON は配置実績として読み込めませんでした。'); }
+    };
+    rd.readAsText(f);
+    e.target.value = '';
+  };
+  document.querySelectorAll('#v-actual [data-del]').forEach(b => b.onclick = () => {
+    const m = b.dataset.del;
+    if(!confirm(`${m} の実績を削除します。よろしいですか。`)) return;
+    delete S.history[m]; save(); viewActual();
+  });
+}
+function exportActualXlsx(){
+  const sheets = [];
+  // 1) 明細
+  const rows = [[H('月'), H('日'), H('区分'), H('ライン・作業'), H('ポジション'), H('氏名'), H('レベル')]];
+  histMonths().forEach(m => S.history[m].days.forEach(d => {
+    d.entries.forEach(e => rows.push([m, d.day, 'ライン', e.line, e.pos, e.name,
+      e.level ? {v:e.level, s:LVS[e.level] || 0} : '']));
+    d.indirect.forEach(i => rows.push([m, d.day, '間接', i.job, '', i.name, '']));
+  }));
+  sheets.push({name:'実績明細', cols:[8,6,8,22,14,14,8], freeze:1, rows});
+  // 2) 工程別 従事回数
+  const {per, ind, positions} = actualCounts();
+  const cnt = [[H('氏名'), ...positions.map(H), H('合計'), H('間接')]];
+  names().filter(n => per[n] || ind[n]).forEach(n => {
+    const tot = positions.reduce((a,p) => a + (per[n]?.[p] || 0), 0);
+    cnt.push([n, ...positions.map(p => per[n]?.[p] || ''), tot, ind[n] || '']);
+  });
+  sheets.push({name:'工程別従事回数', cols:[14, ...positions.map(() => 10), 8, 8], freeze:1, rows:cnt});
+  dlBlob(`配置実績_${new Date().toISOString().slice(0,10)}.xlsx`, buildXlsx(sheets));
+}
+
+/* ---- ライン定義 ---- */
+function viewConfig(){
+  const opts = S4.map(s => esc(s)).join('|');
+  const body = S.lines.map((L, li) => `
+    <div class="linebox" style="margin-bottom:10px">
+      <h4>${esc(L.label)} <span class="sat">起動条件：${L.trig.map(esc).join(' / ')}</span></h4>
+      <table style="width:100%">
+        <tr><th style="text-align:left">ポジション</th><th>必要スキル</th><th>必要レベル</th><th>人数</th></tr>
+        ${L.pos.map((p, pi) => `<tr>
+          <td style="text-align:left">${esc(p.name)}</td>
+          <td><select data-l="${li}" data-p="${pi}" data-k="skill">${S4.map(s =>
+            `<option${s===p.skill?' selected':''}>${esc(s)}</option>`).join('')}</select></td>
+          <td><input type="number" min="1" max="4" value="${p.min}" data-l="${li}" data-p="${pi}" data-k="min" style="width:52px"></td>
+          <td><input type="number" min="0" max="8" value="${p.n}" data-l="${li}" data-p="${pi}" data-k="n" style="width:52px"></td>
+        </tr>`).join('')}
+      </table>
+    </div>`).join('');
+  document.getElementById('v-config').innerHTML = `
+  <div class="panel"><h2>ライン定義 <small>ポジションごとの必要スキル・レベル・人数</small></h2>
+    <div class="hint" style="margin-bottom:8px">
+      配置表の各ポジションを、様式4のスキル項目に対応づけています。現場の運用に合わせて変更してください。
+      変更後は「自動配置」を再実行します。
+    </div>
+    ${body}
+    <div class="row"><button class="ghost" id="reset">既定値に戻す</button></div>
+  </div>`;
+  document.getElementById('v-config').onchange = e => {
+    const t = e.target, l = t.dataset.l; if(l === undefined) return;
+    const p = S.lines[+l].pos[+t.dataset.p], k = t.dataset.k;
+    p[k] = k === 'skill' ? t.value : Math.max(0, +t.value);
+    S.result = null; save();
+  };
+  document.getElementById('reset').onclick = () => {
+    if(confirm('ライン定義を既定値に戻します。よろしいですか？')){
+      S.lines = clone(DEFAULT_LINES); S.result = null; save(); viewConfig(); }
+  };
+}
+
+/* ---------------- 最小XLSXライター（外部ライブラリ不要） ---------------- */
+const CRC = (() => { const t = new Uint32Array(256);
+  for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : c>>>1; t[i]=c>>>0; }
+  return t; })();
+function crc32(buf){ let c = 0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++) c = CRC[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0; }
+const ENC = new TextEncoder();
+
+// 無圧縮(store)ZIP を組み立てる
+function zip(files){
+  const parts = [], central = []; let off = 0;
+  const u16 = n => [n & 255, (n >> 8) & 255];
+  const u32 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  files.forEach(f => {
+    const name = ENC.encode(f.name), data = f.data, crc = crc32(data);
+    const local = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(0), ...u32(crc), ...u32(data.length), ...u32(data.length),
+      ...u16(name.length), ...u16(0), ...name]);
+    parts.push(local, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(0), ...u32(crc), ...u32(data.length), ...u32(data.length),
+      ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off), ...name]));
+    off += local.length + data.length;
+  });
+  const cd = central.reduce((a, c) => a + c.length, 0);
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0),
+    ...u16(files.length), ...u16(files.length), ...u32(cd), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...central, end], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+const X = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+  .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+const colName = i => { let s = ''; i++; while(i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - 1 - m) / 26; } return s; };
+
+// STYLE: 0=標準 1=見出し 2=不足(赤) 3=L4 4=L3 5=L2 6=L1 7=ライン名(太字)
+const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="4"><font><sz val="11"/><name val="Meiryo"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Meiryo"/></font>
+<font><b/><sz val="11"/><name val="Meiryo"/></font>
+<font><sz val="11"/><color rgb="FF9C0006"/><name val="Meiryo"/></font></fonts>
+<fills count="8"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF374151"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFC7D2FE"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFA7F3D0"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFBFDBFE"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFDE68A"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right>
+<top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="8">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="0" fillId="7" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+<dxfs count="0"/></styleSheet>`;
+
+// sheets: [{name, cols:[幅...], rows:[[値 または {v,s}]...], freeze:行数}]
+function buildXlsx(sheets){
+  const files = [];
+  const push = (name, str) => files.push({name, data: ENC.encode(str)});
+  push('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+${sheets.map((s,i) => `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}
+</Types>`);
+  push('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  push('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+ xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>
+${sheets.map((s,i) => `<sheet name="${X(s.name).slice(0,31)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}
+</sheets></workbook>`);
+  push('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${sheets.map((s,i) => `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}
+<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  push('xl/styles.xml', STYLES_XML);
+  sheets.forEach((s, si) => {
+    const rows = s.rows.map((r, ri) => {
+      const cells = r.map((c, ci) => {
+        if(c === null || c === undefined || c === '') return '';
+        const o = (typeof c === 'object') ? c : {v:c, s:0};
+        const ref = colName(ci) + (ri + 1);
+        if(typeof o.v === 'number' && isFinite(o.v))
+          return `<c r="${ref}" s="${o.s||0}"><v>${o.v}</v></c>`;
+        return `<c r="${ref}" s="${o.s||0}" t="inlineStr"><is><t xml:space="preserve">${X(o.v)}</t></is></c>`;
+      }).join('');
+      return `<row r="${ri+1}">${cells}</row>`;
+    }).join('');
+    const cols = s.cols ? `<cols>${s.cols.map((w,i) =>
+      `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
+    const pane = s.freeze ? `<sheetView workbookViewId="0"><pane ySplit="${s.freeze}" topLeftCell="A${s.freeze+1}" activePane="bottomLeft" state="frozen"/></sheetView>`
+      : '<sheetView workbookViewId="0"/>';
+    push(`xl/worksheets/sheet${si+1}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetViews>${pane}</sheetViews>${cols}<sheetData>${rows}</sheetData></worksheet>`);
+  });
+  return zip(files);
+}
+function dlBlob(fn, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fn; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const H = v => ({v, s:1});                 // 見出し
+const LVS = {4:3, 3:4, 2:5, 1:6};          // レベル→スタイル
+
+/* ---- 配置案のExcel出力 ---- */
+function exportAssignXlsx(){
+  const r = S.result; if(!r) return;
+  const sheets = [];
+
+  // 1) 配置案一覧
+  const rows = [[H('日'), H('曜日'), H('ライン'), H('生産ロット'), H('ポジション'),
+                 H('必要レベル'), H('氏名'), H('レベル'), H('ライン外優先度')]];
+  const y = 2026, mo = parseInt(S.month, 10);
+  const dow = d => '日月火水木金土'[new Date(y, mo-1, d).getDay()];
+  r.days.forEach(d => d.groups.forEach(g => g.slots.forEach(s => {
+    const a = (d.placed[g.label + '|' + s.pos] || [])[s.idx] || {};
+    rows.push([d.day, dow(d.day), g.label, g.note, s.pos, s.min,
+      a.name ? a.name : {v:'★該当者なし', s:2},
+      a.level ? {v:a.level, s:LVS[a.level] || 0} : '',
+      a.name && S.emp[a.name].offPri ? S.emp[a.name].offPri : '']);
+  })));
+  sheets.push({name:'配置案', cols:[6,6,22,18,14,10,14,8,14], freeze:1, rows});
+
+  // 2) 日別レイアウト（配置表に近い形）
+  const lay = [[{v:`${S.month}度 人員配置案`, s:7}]];
+  r.days.forEach(d => {
+    if(!d.groups.length) return;
+    lay.push([]);
+    lay.push([{v:`${mo}月${d.day}日(${dow(d.day)})`, s:7},
+      d.warns.length ? {v:`充足不足 ${d.warns.length}件`, s:2} : '充足',
+      d.leave.length ? '有給・出張：' + d.leave.join('、') : '']);
+    d.groups.forEach(g => {
+      lay.push([H(g.label), H(g.note)]);
+      g.slots.forEach(s => {
+        const a = (d.placed[g.label + '|' + s.pos] || [])[s.idx] || {};
+        lay.push(['', `${s.pos} (L${s.min}+)`,
+          a.name ? {v:a.name, s:LVS[a.level] || 0} : {v:'★該当者なし', s:2}]);
+      });
+    });
+    if(d.indirect.length){
+      lay.push([H('ライン外')]);
+      INDIRECT.forEach(j => {
+        const m = d.indirect.filter(i => i.job === j.name);
+        if(m.length) lay.push(['', j.name, m.map(i => i.name).join('、')]);
+      });
+    }
+  });
+  sheets.push({name:'日別レイアウト', cols:[18,20,60], rows:lay});
+
+  // 3) 負荷集計
+  const load = [[H('氏名'), H('ライン配置回数'), H('ライン外優先度'), H('有給・出張日数'), H('稼働')]];
+  Object.entries(r.load).sort((a,b) => b[1]-a[1]).forEach(([n,c]) =>
+    load.push([n, c, S.emp[n].offPri || 0, (S.emp[n].leave||[]).length, S.emp[n].active ? '○' : '×']));
+  sheets.push({name:'負荷集計', cols:[16,16,16,16,8], freeze:1, rows:load});
+
+  // 4) 充足不足の警告
+  const w = [[H('日'), H('内容')]];
+  r.days.forEach(d => d.warns.forEach(t => w.push([d.day, {v:t, s:2}])));
+  if(w.length === 1) w.push(['', '充足不足はありません']);
+  sheets.push({name:'警告', cols:[6,80], freeze:1, rows:w});
+
+  // 5-6) スキルマップ
+  [['様式4', 'f4', SEED.skills4], ['様式10', 'f10', SEED.skills10]].forEach(([nm, key, sks]) => {
+    const sr = [[H('氏名'), ...sks.map(H), H('保有数')]];
+    names().forEach(n => {
+      const e = S.emp[n]; if(key === 'f10' && !Object.keys(e.f10).length) return;
+      sr.push([n, ...sks.map(s => { const v = e[key][s] || 0; return v ? {v, s:LVS[v]} : ''; }),
+        sks.filter(s => (e[key][s]||0) > 0).length]);
+    });
+    sheets.push({name:'スキルマップ' + nm, cols:[14, ...sks.map(() => 6), 8], freeze:1, rows:sr});
+  });
+
+  dlBlob(`人員配置案_${S.month}.xlsx`, buildXlsx(sheets));
+}
+
+function dl(fn, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/csv;charset=utf-8'}));
+  a.download = fn; a.click(); URL.revokeObjectURL(a.href);
+}
+
+show('dash');
+</script>
+</body>
+</html>
